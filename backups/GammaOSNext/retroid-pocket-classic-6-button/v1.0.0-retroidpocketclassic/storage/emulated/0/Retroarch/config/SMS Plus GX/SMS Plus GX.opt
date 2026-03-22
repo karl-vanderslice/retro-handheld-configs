@@ -1,0 +1,5 @@
+smsplus_fm_sound = "auto"
+smsplus_hardware = "auto"
+smsplus_hide_left_border = "enabled"
+smsplus_region = "ntsc-u"
+smsplus_sms_bios = "disabled"

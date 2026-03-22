@@ -1,0 +1,10 @@
+site_name: retro-handheld-configs
+site_description: Retro handheld config + stock snapshot toolkit
+repo_name: retro-handheld-configs
+docs_dir: docs
+site_dir: site
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Workflows: workflows.md

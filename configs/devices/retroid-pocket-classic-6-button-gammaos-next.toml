@@ -1,0 +1,27 @@
+profile_id = "retroid-pocket-classic-6-button-gammaos-next"
+device_name = "Retroid Pocket Classic 6 Button"
+os_name = "GammaOS Next"
+snapshot_class = "custom-os"
+notes = "GammaOS Next snapshot; not Retroid stock firmware."
+os_release = "v.1.0.0-RETROIDPOCKETCLASSIC"
+os_release_url = "https://github.com/TheGammaSqueeze/GammaOSNext/releases/tag/v.1.0.0-RETROIDPOCKETCLASSIC"
+backup_tier = "GammaOSNext"
+backup_subdir = "retroid-pocket-classic-6-button/v1.0.0-retroidpocketclassic"
+
+source_paths = [
+  "/storage/emulated/0/PSP",
+  "/storage/emulated/0/Retroarch",
+  "/storage/emulated/0/Android/data/com.retroarch.aarch64",
+]
+
+root_source_paths = [
+  "/data/user/0/com.dsemu.drastic/files/DraStic",
+  "/data/user/0/com.dsemu.drastic/shared_prefs",
+  "/data/user/0/org.mupen64plusae.v3.fzurita/files",
+  "/data/user/0/org.mupen64plusae.v3.fzurita/shared_prefs",
+  "/data/user/0/com.retroarch.aarch64/shared_prefs/com.retroarch.aarch64_preferences.xml",
+]
+
+exclude_substrings = [
+  "firebase",
+]

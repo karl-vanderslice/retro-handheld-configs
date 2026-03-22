@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <long name="last_upload" value="1733619052017" />
+    <long name="first_open_time" value="1733537292795" />
+    <string name="gmp_app_id">1:701319238411:android:9acbf9aec2cb32f922480e</string>
+    <string name="app_instance_id">c5fa8c4cc6f07cc29d23ebf930e2f075</string>
+    <boolean name="app_backgrounded" value="true" />
+    <long name="session_id" value="1733585335" />
+    <long name="health_monitor:start" value="1733537292927" />
+    <boolean name="deferred_analytics_collection" value="true" />
+    <long name="last_delete_stale" value="87193762" />
+    <string name="previous_os_version">13</string>
+    <boolean name="has_been_opened" value="true" />
+    <string name="health_monitor:value">2WC84002:Service invalid</string>
+    <boolean name="allow_remote_dynamite" value="true" />
+    <long name="midnight_offset" value="68909908" />
+    <long name="last_pause_time" value="1733585477487" />
+    <boolean name="start_new_session" value="true" />
+    <long name="health_monitor:count" value="29" />
+    <long name="last_upload_attempt" v

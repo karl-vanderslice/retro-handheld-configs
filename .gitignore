@@ -1,0 +1,24 @@
+# Nix
+.direnv/
+result
+result-*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Tool/runtime state
+.rhc-state/
+.pre-commit-config.yaml
+
+# MkDocs build output
+site/
+
+# Ensure lockfile is tracked (override broad/global ignores)
+!flake.lock
+!.envrc

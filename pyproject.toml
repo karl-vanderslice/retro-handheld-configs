@@ -1,0 +1,32 @@
+[project]
+name = "retro-handheld-configs"
+version = "0.1.0"
+description = "CLI for retro handheld config and stock-state management"
+requires-python = ">=3.12"
+readme = "README.md"
+
+dependencies = []
+
+[project.scripts]
+rhc = "rhc.cli:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src"]
+extend-exclude = ["backups"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
