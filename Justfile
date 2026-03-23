@@ -39,6 +39,18 @@ migrate-state dry_run="true":
 state-doctor:
   nix develop -c rhc state-doctor
 
+import-audio-assets profile="retroid-pocket-classic-6-button-gammaos-next" source="/Volumes/media-emulation/Devices/Retroid Pocket Classic/6 Button/sdcard/media/audio" overwrite="false":
+  nix develop -c rhc import-audio-assets --profile {{profile}} --source {{source}} {{if overwrite == "true" {"--overwrite"} else {""}}}
+
+download-apks force="false" destination="$HOME/.cache/rhc/apks":
+  nix develop -c rhc download-apks {{if force == "true" {"--force"} else {""}}} --destination {{destination}}
+
+customize-device serial="" force="false" profile="retroid-pocket-classic-6-button-gammaos-next" yes_format_sd="false" skip_format_sd="false":
+  nix develop -c rhc customize-device --profile {{profile}} {{if serial != "" {"--serial " + serial} else {""}}} {{if force == "true" {"--force"} else {""}}} {{if yes_format_sd == "true" {"--yes-format-sd"} else {""}}} {{if skip_format_sd == "true" {"--skip-format-sd"} else {""}}}
+
+customize-device-auto serial="" force="false" profile="retroid-pocket-classic-6-button-gammaos-next" format_sd="false":
+  nix develop -c rhc customize-device --profile {{profile}} {{if serial != "" {"--serial " + serial} else {""}}} {{if force == "true" {"--force"} else {""}}} --yes-format-sd {{if format_sd == "true" {""} else {"--skip-format-sd"}}}
+
 docs-serve:
   nix develop -c mkdocs serve
 

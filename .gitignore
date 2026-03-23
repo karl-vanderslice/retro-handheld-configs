@@ -15,6 +15,7 @@ __pycache__/
 # Tool/runtime state
 .rhc-state/
 .pre-commit-config.yaml
+/managed/apks/
 
 # MkDocs build output
 site/
