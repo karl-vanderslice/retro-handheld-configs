@@ -16,6 +16,9 @@ __pycache__/
 .rhc-state/
 .pre-commit-config.yaml
 /managed/apks/
+/managed/*/secrets/
+.env.local
+.envrc.local
 
 # MkDocs build output
 site/

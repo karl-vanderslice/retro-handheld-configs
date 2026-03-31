@@ -9,15 +9,17 @@
 
 ## Managed customization apply
 
+Tooling policy: workflows are hermetic. Required CLIs must come from `flake.nix` via `nix develop -c ...`; do not install dependencies at runtime.
+
 Prep once:
 
 1. Run `just import-audio-assets` to copy source audio into `managed/<profile>/media/audio`.
-2. Optionally run `just download-apks` to cache latest Aurora Store and Obtainium outside the repo (`~/.cache/rhc/apks` by default).
+2. Optionally run `just download-apks` to cache latest Obtainium outside the repo (`~/.cache/rhc/apks` by default).
 
 Use `just customize-device` (or `rhc customize-device`) to apply these ADB steps:
 
 1. Confirm SD reformat and partition removable card as public storage.
-2. Download/install latest Aurora Store + Obtainium and allow install-other-apps permissions.
+2. Download/install latest Obtainium and allow install-other-apps permissions.
 3. Remove preloaded ROM files from `/storage/emulated/0/ROMs` while preserving `systeminfo.txt`.
 4. Push `managed/<profile>/media/audio` to `/storage/emulated/0/media/audio`.
 5. Configure sounds:

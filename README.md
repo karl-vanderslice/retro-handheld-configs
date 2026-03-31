@@ -34,7 +34,7 @@ just pull-stock
 just pull-stock-root force=true
 just import-audio-assets
 just download-apks
-just customize-device-auto
+just customize-auto
 just migrate-state dry_run=true
 just state-doctor
 just docs-build
@@ -49,11 +49,11 @@ just docs-build
 - `rhc migrate-state` — migrates `.rhc-state/*.json` files to the current schema version.
 - `rhc state-doctor` — validates `.rhc-state/*.json` files and reports schema/field problems.
 - `rhc import-audio-assets` — one-time copy from local audio source path into `managed/<profile>/media/audio` (preserves structure).
-- `rhc download-apks` — downloads latest Aurora Store and Obtainium APKs into an external cache (default: `~/.cache/rhc/apks`).
+- `rhc download-apks` — downloads latest Obtainium APK into an external cache (default: `~/.cache/rhc/apks`).
 - `rhc customize-device` — runs ADB customization steps:
 	- formats SD card as removable/public storage by default (or use `--yes-format-sd` for non-interactive confirm)
 	- use `--skip-format-sd` to leave SD card untouched
-	- downloads latest Aurora Store + Obtainium APKs at runtime (temporary directory), installs them, and enables install-other-apps app-op
+	- downloads latest Obtainium APK at runtime (temporary directory), installs it, and enables install-other-apps app-op
 	- removes preloaded ROM files under `/storage/emulated/0/ROMs` while preserving `systeminfo.txt`
 	- pushes `managed/<profile>/media/audio` to `/storage/emulated/0/media/audio` preserving structure
 	- sets system sounds:
@@ -66,12 +66,16 @@ just docs-build
 	- removes M64Plus FZ and PPSSPP for user 0 while keeping app data (`pm uninstall -k --user 0`)
 	- disables or uninstalls Browser, Calendar, Camera, Clock, Files app, Gallery, MIX Explorer, Music, and Sim Toolkit when present
 
-`just customize-device-auto` skips SD formatting by default; pass `format_sd="true"` to include formatting.
+`just customize-auto` skips SD formatting by default; pass `format_sd="true"` to include formatting.
+
+Legacy aliases (`customize-device*`) are still available for backward compatibility.
 
 ## Workflow entrypoint
 
 - Use the `Justfile` for all day-to-day workflows.
 - Prefer `just <target>` over invoking `nix develop`, `rhc`, `pytest`, or `ruff` directly.
+- Tooling is hermetic and Nix-managed: required CLIs must be declared in `flake.nix`.
+- Do not install workflow dependencies at runtime from recipes/scripts.
 - Lint/format/pre-commit checks exclude `backups/` so captured snapshots are preserved as-is.
 
 ## Device profiles

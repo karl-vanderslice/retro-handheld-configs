@@ -97,16 +97,13 @@ DEFAULT_AUDIO_IMPORT_SOURCE = (
     "/Volumes/media-emulation/Devices/Retroid Pocket Classic/6 Button/sdcard/media/audio"
 )
 
-AURORA_STORE_LATEST_APK_URL = "https://auroraoss.com/downloads/AuroraStore/Latest/latest.apk"
 OBTAINIUM_RELEASES_API_URL = "https://api.github.com/repos/ImranR98/Obtainium/releases/latest"
 
 APK_LOCAL_FILENAMES = {
-    "Aurora Store": "AuroraStore-latest.apk",
     "Obtainium": "Obtainium-latest.apk",
 }
 
 APK_PERMISSION_PACKAGE_CANDIDATES = {
-    "Aurora Store": ["com.aurora.store"],
     "Obtainium": ["dev.imranr.obtainium", "dev.imranr.obtainium.fdroid"],
 }
 
@@ -221,7 +218,6 @@ def _print_phase_one_completion_banner() -> None:
     print("🎉 ║                      PHASE 1 COMPLETE                              ║")
     print("🎉 ╚══════════════════════════════════════════════════════════════════════╝")
     print("")
-    print("➡️  Now, log into Aurora Store with your Google Play account.")
     print("➡️  Import the Obtainium JSON in Downloads (or wherever we put it).")
     print("➡️  We’ll expand these instructions a bit further shortly.")
 
@@ -376,13 +372,8 @@ def _resolve_obtainium_download_url() -> str:
 def _download_latest_apks(force: bool, destination_dir: Path | None = None) -> dict[str, Path]:
     destination_root = destination_dir if destination_dir is not None else DEFAULT_APK_CACHE_DIR
     destinations = {
-        "Aurora Store": destination_root / APK_LOCAL_FILENAMES["Aurora Store"],
         "Obtainium": destination_root / APK_LOCAL_FILENAMES["Obtainium"],
     }
-
-    if force or not destinations["Aurora Store"].exists():
-        _download_file(AURORA_STORE_LATEST_APK_URL, destinations["Aurora Store"])
-        print(f"Downloaded Aurora Store -> {destinations['Aurora Store']}")
 
     if force or not destinations["Obtainium"].exists():
         obtainium_url = _resolve_obtainium_download_url()
@@ -1182,7 +1173,6 @@ def cmd_customize_device(
                 force=True,
                 destination_dir=Path(apk_tmp_dir),
             )
-            _install_apk(adb, selected, downloaded_apks["Aurora Store"], label="Aurora Store")
             _install_apk(adb, selected, downloaded_apks["Obtainium"], label="Obtainium")
         install_permission_report = _grant_apk_install_permissions(adb, selected)
         for line in install_permission_report:
@@ -1210,6 +1200,7 @@ def cmd_customize_device(
         app_report = _disable_or_uninstall_apps(adb, selected)
         for line in app_report:
             print(f"App cleanup: {line}")
+
     except subprocess.TimeoutExpired as exc:
         print(f"error: operation timed out: {exc}", file=sys.stderr)
         return 1
@@ -1225,11 +1216,10 @@ def cmd_customize_device(
             "customize_device": {
                 **(customize_marker if isinstance(customize_marker, dict) else {}),
                 profile: {"last_applied_at": datetime.now(tz=UTC).isoformat()},
-            }
+            },
         },
     )
     print("Customization complete.")
-    _print_phase_one_completion_banner()
     return 0
 
 
@@ -1335,7 +1325,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     download_apks_parser = subparsers.add_parser(
         "download-apks",
-        help="Download latest Aurora Store and Obtainium APKs into managed/apks.",
+        help="Download latest Obtainium APK into managed/apks.",
     )
     download_apks_parser.add_argument(
         "--force",

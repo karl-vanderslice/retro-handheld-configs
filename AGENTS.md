@@ -27,6 +27,8 @@ This repository is intended for agent-assisted management of retro handheld devi
 - Documentation lives under `docs/` and is built with MkDocs.
 - Nix is the source of truth for developer tooling.
 - `Justfile` is the canonical project entrypoint; run workflows via `just` targets.
+- Tooling must be hermetic: do not install CLIs at runtime (no curl-pipe installers, brew, npm -g, etc.) inside workflows.
+- If a CLI is required, add it to `flake.nix` and invoke it through `nix develop -c ...`.
 - Exclude Firebase telemetry/crash artifacts from backups.
 - Linting/formatting/pre-commit checks must ignore `backups/`.
 
