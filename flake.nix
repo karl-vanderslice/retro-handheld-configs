@@ -19,6 +19,75 @@
       let
         pkgs = import nixpkgs { inherit system; };
         python = pkgs.python312;
+        pythonPackages = pkgs.python312Packages;
+
+        retry2 = pythonPackages.buildPythonPackage rec {
+          pname = "retry2";
+          version = "0.9.5";
+          format = "wheel";
+
+          src = pythonPackages.fetchPypi {
+            inherit pname version format;
+            python = "py2.py3";
+            abi = "none";
+            platform = "any";
+            hash = "sha256-9/7hOx4V0GEcRikQpqpyqJGYI5iN0EEhUrw3GciaTlU=";
+          };
+
+          propagatedBuildInputs = [ pythonPackages.decorator ];
+
+          doCheck = false;
+        };
+
+        adbutils = pythonPackages.buildPythonPackage rec {
+          pname = "adbutils";
+          version = "2.12.0";
+          pyproject = true;
+          build-system = [
+            pythonPackages.setuptools
+            pythonPackages.pbr
+          ];
+
+          src = pythonPackages.fetchPypi {
+            inherit pname version;
+            hash = "sha256-NlOo85c1YgvEWxXuLnoA5QLJ8aJZRS4fsru6PqWdDmg=";
+          };
+
+          propagatedBuildInputs = [
+            pythonPackages.deprecation
+            pythonPackages.pillow
+            pythonPackages.requests
+            retry2
+          ];
+
+          doCheck = false;
+        };
+
+        uiautomator2 = pythonPackages.buildPythonPackage rec {
+          pname = "uiautomator2";
+          version = "3.5.0";
+          pyproject = true;
+          build-system = [
+            pythonPackages.poetry-core
+            pythonPackages.poetry-dynamic-versioning
+          ];
+
+          src = pythonPackages.fetchPypi {
+            inherit pname version;
+            hash = "sha256-9vXkAjgsOmYtvaCs6JxpHI0/mqNAQS+Lv89fCCSaIaY=";
+          };
+
+          propagatedBuildInputs = [
+            adbutils
+            pythonPackages.lxml
+            pythonPackages.pillow
+            pythonPackages.requests
+            retry2
+          ];
+
+          doCheck = false;
+        };
+
         rhc = pkgs.writeShellScriptBin "rhc" ''
           export PYTHONPATH="$PWD/src''${PYTHONPATH:+:$PYTHONPATH}"
           exec ${python}/bin/python -m rhc.cli "$@"
@@ -95,6 +164,7 @@
             pkgs.pre-commit
             pkgs.ruff
             python
+            uiautomator2
             rhc
           ];
 

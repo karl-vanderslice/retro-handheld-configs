@@ -10,11 +10,14 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import tomllib
 import urllib.error
 import urllib.request
+import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from rhc.state import (
     iter_state_files,
@@ -98,13 +101,28 @@ DEFAULT_AUDIO_IMPORT_SOURCE = (
 )
 
 OBTAINIUM_RELEASES_API_URL = "https://api.github.com/repos/ImranR98/Obtainium/releases/latest"
+OBTAINIUM_EMULATION_PACK_RELEASES_API_URL = (
+    "https://api.github.com/repos/RJNY/Obtainium-Emulation-Pack/releases/latest"
+)
 
 APK_LOCAL_FILENAMES = {
     "Obtainium": "Obtainium-latest.apk",
 }
 
+OBTAINIUM_EMULATION_PACK_LOCAL_FILENAME = "obtainium-emulation-pack-single-device-latest.json"
+DEFAULT_DOWNLOADS_DIR = Path.home() / "Downloads"
+DEVICE_DOWNLOADS_DIR = "/sdcard/Download"
+OBTAINIUM_APPS_POPULATED_HINTS = [
+    "RetroArch",
+    "DraStic",
+    "Daijish",
+    "Flycast",
+    "Aurora Store",
+]
+
 APK_PERMISSION_PACKAGE_CANDIDATES = {
     "Obtainium": ["dev.imranr.obtainium", "dev.imranr.obtainium.fdroid"],
+    "Aurora Store": ["com.aurora.store"],
 }
 
 SYSTEM_SOUND_MAP = {
@@ -115,6 +133,37 @@ SYSTEM_SOUND_MAP = {
 
 CHARGING_SOUND_RELATIVE_PATH = "notifications/lightning_shield.mp3"
 DEFAULT_PROFILE = "retroid-pocket-classic-6-button-gammaos-next"
+
+OUTPUT_TEXT = "text"
+OUTPUT_JSON = "json"
+OUTPUT_MODES = {OUTPUT_TEXT, OUTPUT_JSON}
+
+CUSTOMIZE_TARGETS_ORDER = [
+    "format-sd",
+    "apks",
+    "obtainium-import",
+    "rom-cleanup",
+    "audio-sync",
+    "system-sounds",
+    "auto-rotate",
+    "timezone",
+    "lockscreen",
+    "remove-apps-keep-data",
+    "remove-apps",
+]
+CUSTOMIZE_TARGETS = set(CUSTOMIZE_TARGETS_ORDER)
+CUSTOMIZE_TARGET_ALIASES = {
+    "format_sd": "format-sd",
+    "apk": "apks",
+    "apk-config": "apks",
+    "obtainium": "obtainium-import",
+    "obtainium-pack": "obtainium-import",
+    "roms": "rom-cleanup",
+    "audio": "audio-sync",
+    "sounds": "system-sounds",
+    "rotate": "auto-rotate",
+    "remove-apps-keepdata": "remove-apps-keep-data",
+}
 
 ANSI_RESET = "\033[0m"
 ANSI_COLORS = {
@@ -132,8 +181,41 @@ LEVEL_LABELS = {
     "step": "[STEP]",
 }
 
+_OUTPUT_MODE = OUTPUT_TEXT
+_NO_COLOR = False
+_LOG_FILE_PATH: Path | None = None
+
+
+def _default_output_mode() -> str:
+    env_mode = os.environ.get("RHC_OUTPUT", OUTPUT_TEXT).strip().lower()
+    if env_mode in OUTPUT_MODES:
+        return env_mode
+    return OUTPUT_TEXT
+
+
+def configure_output(mode: str, log_file: str | None, no_color: bool) -> None:
+    global _OUTPUT_MODE, _NO_COLOR, _LOG_FILE_PATH
+    _OUTPUT_MODE = mode if mode in OUTPUT_MODES else OUTPUT_TEXT
+    _NO_COLOR = no_color
+
+    if log_file:
+        _LOG_FILE_PATH = Path(log_file).expanduser()
+        _LOG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        _LOG_FILE_PATH = None
+
+
+def _log_json_event(event: dict[str, Any]) -> None:
+    if _LOG_FILE_PATH is None:
+        return
+    with _LOG_FILE_PATH.open("a", encoding="utf-8") as log_file:
+        log_file.write(json.dumps(event, sort_keys=True) + "\n")
+
 
 def _stream_supports_color(stream: object) -> bool:
+    if _NO_COLOR:
+        return False
+
     if os.environ.get("NO_COLOR") is not None:
         return False
 
@@ -166,6 +248,10 @@ def _classify_message(message: str, stream: object) -> tuple[str, str]:
         return "warning", stripped.split(":", 1)[1].strip()
     if lowered.startswith("ok:"):
         return "success", stripped.split(":", 1)[1].strip()
+    if lowered.startswith("done:"):
+        return "success", stripped.split(":", 1)[1].strip()
+    if lowered.startswith("step:"):
+        return "step", stripped.split(":", 1)[1].strip()
     if lowered.startswith("invalid:"):
         return "error", stripped
     if lowered.startswith("migrated:") or lowered.startswith("would migrate:"):
@@ -199,9 +285,38 @@ def print(
         return
 
     level, message = _classify_message(raw, stream)
+    event = {
+        "ts": datetime.now(tz=UTC).isoformat(),
+        "level": level,
+        "message": message,
+        "stream": "stderr" if stream is sys.stderr else "stdout",
+    }
+
+    _log_json_event(event)
+
+    if _OUTPUT_MODE == OUTPUT_JSON:
+        builtins.print(json.dumps(event, sort_keys=True), end=end, file=stream, flush=flush)
+        return
+
     label = LEVEL_LABELS.get(level, LEVEL_LABELS["info"])
     prefix = _paint(level, label, stream)
     builtins.print(f"{prefix} {message}", end=end, file=stream, flush=flush)
+
+
+def _normalize_customize_targets(targets: list[str] | None) -> list[str]:
+    if not targets:
+        return list(CUSTOMIZE_TARGETS_ORDER)
+
+    selected: set[str] = set()
+    for target in targets:
+        normalized = CUSTOMIZE_TARGET_ALIASES.get(target, target)
+        if normalized == "all":
+            return list(CUSTOMIZE_TARGETS_ORDER)
+        if normalized not in CUSTOMIZE_TARGETS:
+            raise RuntimeError(f"unknown customization target: {target}")
+        selected.add(normalized)
+
+    return [target for target in CUSTOMIZE_TARGETS_ORDER if target in selected]
 
 
 def _state_dir() -> Path:
@@ -369,6 +484,60 @@ def _resolve_obtainium_download_url() -> str:
     raise RuntimeError("unable to find an APK asset for Obtainium latest release")
 
 
+def _resolve_obtainium_emulation_pack_download() -> tuple[str, str]:
+    request = urllib.request.Request(
+        OBTAINIUM_EMULATION_PACK_RELEASES_API_URL,
+        headers={
+            "User-Agent": "retro-handheld-configs/0.1 (+https://github.com/karl-vanderslice)",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    assets = payload.get("assets")
+    if not isinstance(assets, list) or not assets:
+        raise RuntimeError("unable to find Obtainium Emulation Pack release assets")
+
+    preferred_download_url: str | None = None
+    preferred_name: str | None = None
+    fallback_download_url: str | None = None
+    fallback_name: str | None = None
+
+    for asset in assets:
+        if not isinstance(asset, dict):
+            continue
+
+        name = asset.get("name")
+        browser_download_url = asset.get("browser_download_url")
+        if not isinstance(name, str) or not isinstance(browser_download_url, str):
+            continue
+
+        lowered = name.lower()
+        if not lowered.endswith(".json"):
+            continue
+
+        if "obtainium-emulation-pack" not in lowered:
+            continue
+
+        if fallback_download_url is None:
+            fallback_download_url = browser_download_url
+            fallback_name = name
+
+        if "dual-screen" in lowered:
+            continue
+
+        preferred_download_url = browser_download_url
+        preferred_name = name
+        break
+
+    if preferred_download_url and preferred_name:
+        return preferred_download_url, preferred_name
+    if fallback_download_url and fallback_name:
+        return fallback_download_url, fallback_name
+    raise RuntimeError("unable to find a JSON asset for Obtainium Emulation Pack")
+
+
 def _download_latest_apks(force: bool, destination_dir: Path | None = None) -> dict[str, Path]:
     destination_root = destination_dir if destination_dir is not None else DEFAULT_APK_CACHE_DIR
     destinations = {
@@ -381,6 +550,18 @@ def _download_latest_apks(force: bool, destination_dir: Path | None = None) -> d
         print(f"Downloaded Obtainium -> {destinations['Obtainium']}")
 
     return destinations
+
+
+def _download_obtainium_emulation_pack(force: bool, destination_dir: Path) -> Path:
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = destination_dir / OBTAINIUM_EMULATION_PACK_LOCAL_FILENAME
+
+    if force or not destination.exists():
+        pack_url, asset_name = _resolve_obtainium_emulation_pack_download()
+        _download_file(pack_url, destination)
+        print(f"Downloaded Obtainium Emulation Pack ({asset_name}) -> {destination}")
+
+    return destination
 
 
 def _copy_directory_tree(source_root: Path, destination_root: Path, overwrite: bool) -> int:
@@ -430,11 +611,16 @@ def cmd_download_apks(force: bool, destination: str) -> int:
     try:
         destination_dir = Path(destination)
         _download_latest_apks(force=force, destination_dir=destination_dir)
+        _download_obtainium_emulation_pack(
+            force=force,
+            destination_dir=DEFAULT_DOWNLOADS_DIR,
+        )
     except (RuntimeError, urllib.error.URLError, ValueError) as exc:
         print(f"error: failed to download latest APKs: {exc}", file=sys.stderr)
         return 1
 
     print(f"APK download complete in {destination_dir}.")
+    print(f"Obtainium emulation pack JSON saved to {DEFAULT_DOWNLOADS_DIR}.")
     return 0
 
 
@@ -989,6 +1175,563 @@ def _install_apk(adb: str, serial: str, apk_path: Path, label: str) -> None:
         raise RuntimeError(f"failed to install {label} from {apk_path}: {output}")
 
 
+def _push_to_device_downloads(adb: str, serial: str, local_path: Path) -> str:
+    if not local_path.exists():
+        raise RuntimeError(f"local file not found: {local_path}")
+
+    remote_path = f"{DEVICE_DOWNLOADS_DIR}/{local_path.name}"
+    _adb_shell(
+        adb, serial, f"mkdir -p {shlex.quote(DEVICE_DOWNLOADS_DIR)}", check=False, timeout=20
+    )
+    subprocess.run(
+        [adb, "-s", serial, "push", str(local_path), remote_path],
+        check=True,
+        timeout=120,
+    )
+    return remote_path
+
+
+def _automate_obtainium_import(
+    adb: str,
+    device_serial: str,
+    local_json_path: Path,
+    *,
+    cleanup_rpc: bool,
+) -> None:
+    try:
+        import uiautomator2 as u2
+    except Exception as exc:  # pragma: no cover - depends on dev shell
+        raise RuntimeError(
+            "uiautomator2 is required for Obtainium automation. "
+            "Use the Nix dev shell with uiautomator2 available."
+        ) from exc
+
+    installed = _list_installed_packages(adb, device_serial)
+    pkg_name = next(
+        (pkg for pkg in APK_PERMISSION_PACKAGE_CANDIDATES["Obtainium"] if pkg in installed),
+        None,
+    )
+    if pkg_name is None:
+        raise RuntimeError("Obtainium package is not installed on device")
+
+    _adb_shell(
+        adb,
+        device_serial,
+        "cmd package install-existing --user 0 com.android.documentsui",
+        check=False,
+        timeout=20,
+    )
+    _adb_shell(
+        adb,
+        device_serial,
+        f"pm grant {shlex.quote(pkg_name)} android.permission.POST_NOTIFICATIONS",
+        check=False,
+        timeout=20,
+    )
+    _adb_shell(
+        adb,
+        device_serial,
+        f"appops set {shlex.quote(pkg_name)} POST_NOTIFICATION allow",
+        check=False,
+        timeout=20,
+    )
+    _adb_shell(
+        adb,
+        device_serial,
+        f"pm grant {shlex.quote(pkg_name)} android.permission.REQUEST_INSTALL_PACKAGES",
+        check=False,
+        timeout=20,
+    )
+    _adb_shell(
+        adb,
+        device_serial,
+        f"appops set {shlex.quote(pkg_name)} REQUEST_INSTALL_PACKAGES allow",
+        check=False,
+        timeout=20,
+    )
+
+    d = u2.connect(device_serial)
+    try:
+        d.healthcheck()
+        d.service("uiautomator").start()
+    except Exception:
+        pass
+    file_name = OBTAINIUM_EMULATION_PACK_LOCAL_FILENAME
+    device_path = f"{DEVICE_DOWNLOADS_DIR}/{file_name}"
+
+    d.push(str(local_json_path), device_path)
+    _adb_shell(
+        adb,
+        device_serial,
+        "am force-stop com.android.documentsui",
+        check=False,
+        timeout=20,
+    )
+    _adb_shell(adb, device_serial, "input keyevent KEYCODE_HOME", check=False, timeout=10)
+    d.app_stop(pkg_name)
+    launch_component_result = _adb_shell(
+        adb,
+        device_serial,
+        f"cmd package resolve-activity --brief {shlex.quote(pkg_name)}",
+        check=False,
+        timeout=20,
+    )
+    launch_component = ""
+    for line in launch_component_result.stdout.splitlines():
+        if "/" in line and not line.startswith("priority="):
+            launch_component = line.strip()
+            break
+
+    if launch_component:
+        _adb_shell(
+            adb,
+            device_serial,
+            f"am start -S -W -n {shlex.quote(launch_component)}",
+            check=False,
+            timeout=20,
+        )
+    else:
+        d.app_start(pkg_name, stop=True)
+
+    def _first_visible(candidates: list[object], timeout: float) -> object | None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            for candidate in candidates:
+                try:
+                    if candidate.exists:
+                        return candidate
+                except Exception:
+                    try:
+                        d.healthcheck()
+                    except Exception:
+                        pass
+                    continue
+            time.sleep(0.4)
+        return None
+
+    def _tap_if_visible(candidates: list[object], timeout: float = 2.0) -> bool:
+        selector = _first_visible(candidates, timeout)
+        if selector is None:
+            return False
+        selector.click()
+        return True
+
+    def _dismiss_first_run_popups() -> None:
+        for _ in range(5):
+            clicked = _tap_if_visible(
+                [
+                    d(resourceId="com.android.permissioncontroller:id/permission_allow_button"),
+                    d(textMatches=r"(?i)^allow$"),
+                    d(textMatches=r"(?i)^continue$"),
+                    d(textMatches=r"(?i)^next$"),
+                    d(textMatches=r"(?i)^ok$"),
+                    d(textMatches=r"(?i)^got it$"),
+                    d(textMatches=r"(?i)^close$"),
+                    d(descriptionMatches=r"(?i)^allow$"),
+                    d(descriptionMatches=r"(?i)^continue$"),
+                    d(descriptionMatches=r"(?i)^okay$"),
+                    d(descriptionMatches=r"(?i)^dismiss$"),
+                    d(descriptionContains="Keep Android Open"),
+                ],
+                timeout=1.5,
+            )
+            if not clicked:
+                break
+            time.sleep(0.8)
+
+    def _wait_for_obtainium_foreground(timeout: float = 20.0) -> bool:
+        activity_focus_cmd = (
+            "dumpsys activity activities | grep -E 'topResumedActivity|mFocusedApp' | head -n 2"
+        )
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            focus = _adb_shell(
+                adb,
+                device_serial,
+                activity_focus_cmd,
+                check=False,
+                timeout=10,
+            )
+            combined = (focus.stdout + "\n" + focus.stderr).lower()
+            if pkg_name.lower() in combined and "mainactivity" in combined:
+                return True
+            time.sleep(0.5)
+        return False
+
+    def _documentsui_foreground() -> bool:
+        activity_focus_cmd = (
+            "dumpsys activity activities | grep -E 'topResumedActivity|mFocusedApp' | head -n 2"
+        )
+        focus = _adb_shell(
+            adb,
+            device_serial,
+            activity_focus_cmd,
+            check=False,
+            timeout=10,
+        )
+        combined = (focus.stdout + "\n" + focus.stderr).lower()
+        return "com.android.documentsui" in combined
+
+    def _recover_documentsui_json_pick() -> bool:
+        if not _documentsui_foreground():
+            return True
+
+        _tap_if_visible([d(descriptionContains="Clear query")], timeout=1.0)
+        _tap_if_visible(
+            [
+                d(textMatches=r"(?i)^files$"),
+                d(descriptionMatches=r"(?i)^files$"),
+            ],
+            timeout=3.0,
+        )
+        time.sleep(0.8)
+
+        _tap_if_visible(
+            [
+                d(resourceId="com.android.documentsui:id/option_menu_search"),
+                d(descriptionContains="Search"),
+            ],
+            timeout=3.0,
+        )
+
+        xml_text = d.dump_hierarchy()
+        tapped_exact_row = False
+        try:
+            root = ET.fromstring(xml_text)
+            for node in root.findall(".//node"):
+                if node.attrib.get("resource-id") != "android:id/title":
+                    continue
+                if (node.attrib.get("text") or "").strip() != file_name:
+                    continue
+                bounds = (node.attrib.get("bounds") or "").strip()
+                if not bounds.startswith("["):
+                    continue
+                points = bounds.replace("][", ",").replace("[", "").replace("]", "").split(",")
+                if len(points) != 4:
+                    continue
+                x1, y1, x2, y2 = [int(p) for p in points]
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
+                _adb_shell(
+                    adb,
+                    device_serial,
+                    f"input tap {center_x} {center_y}",
+                    check=False,
+                    timeout=10,
+                )
+                tapped_exact_row = True
+                break
+        except Exception:
+            tapped_exact_row = False
+
+        if not tapped_exact_row:
+            _tap_if_visible(
+                [
+                    d(resourceId="com.android.documentsui:id/item_root"),
+                    d(resourceId="android:id/title", text=file_name),
+                    d(resourceId="android:id/title", textContains="obtainium-emulation-pack"),
+                ],
+                timeout=6.0,
+            )
+
+        _tap_if_visible([d(resourceId="com.android.documentsui:id/item_root")], timeout=2.0)
+        _adb_shell(adb, device_serial, "input keyevent KEYCODE_ENTER", check=False, timeout=10)
+        _adb_shell(
+            adb,
+            device_serial,
+            "input keyevent KEYCODE_DPAD_CENTER",
+            check=False,
+            timeout=10,
+        )
+        time.sleep(1.0)
+        return _wait_for_obtainium_foreground(timeout=12.0)
+
+    if not _wait_for_obtainium_foreground(timeout=12.0):
+        if launch_component:
+            _adb_shell(
+                adb,
+                device_serial,
+                f"am start -S -W -n {shlex.quote(launch_component)}",
+                check=False,
+                timeout=25,
+            )
+        else:
+            _adb_shell(
+                adb,
+                device_serial,
+                f"monkey -p {shlex.quote(pkg_name)} -c android.intent.category.LAUNCHER 1",
+                check=False,
+                timeout=20,
+            )
+
+        _adb_shell(adb, device_serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+        if not _wait_for_obtainium_foreground(timeout=10.0):
+            raise RuntimeError("Obtainium did not reach foreground before import automation")
+
+    _dismiss_first_run_popups()
+
+    no_apps_initial = _first_visible(
+        [
+            d(textMatches=r"(?i)^no apps$"),
+            d(descriptionMatches=r"(?i)^no apps$"),
+        ],
+        timeout=2.0,
+    )
+    if no_apps_initial is None and not _documentsui_foreground():
+        already_populated = _first_visible(
+            [d(textContains=hint) for hint in OBTAINIUM_APPS_POPULATED_HINTS]
+            + [d(descriptionContains=hint) for hint in OBTAINIUM_APPS_POPULATED_HINTS],
+            timeout=2.0,
+        )
+        if already_populated is not None:
+            if cleanup_rpc:
+                try:
+                    d.service("uiautomator").stop()
+                except Exception:
+                    pass
+            return
+
+    import_export_selector = _first_visible(
+        [
+            d(textContains="Import/export"),
+            d(textContains="Import/Export"),
+            d(textContains="import/export"),
+            d(descriptionContains="Import/export"),
+            d(descriptionContains="Import/Export"),
+            d(descriptionContains="import/export"),
+            d(descriptionContains="Tab 3 of 4"),
+        ],
+        timeout=20.0,
+    )
+    if import_export_selector is None:
+        _adb_shell(adb, device_serial, "input tap 775 940", check=False, timeout=10)
+        time.sleep(1.0)
+        import_export_selector = _first_visible(
+            [
+                d(textContains="Import/export"),
+                d(textContains="Import/Export"),
+                d(textContains="import/export"),
+                d(descriptionContains="Import/export"),
+                d(descriptionContains="Import/Export"),
+                d(descriptionContains="import/export"),
+                d(descriptionContains="Tab 3 of 4"),
+            ],
+            timeout=6.0,
+        )
+    if import_export_selector is None:
+        raise RuntimeError("failed to find Obtainium 'Import/export' screen")
+    import_export_selector.click()
+
+    obtainium_import_selector = _first_visible(
+        [
+            d(textContains="Obtainium import"),
+            d(textContains="Obtainium Import"),
+            d(textContains="obtainium import"),
+            d(descriptionContains="Obtainium import"),
+            d(descriptionContains="Obtainium Import"),
+            d(descriptionContains="obtainium import"),
+        ],
+        timeout=6.0,
+    )
+
+    if obtainium_import_selector is not None:
+        obtainium_import_selector.click()
+    else:
+        raise RuntimeError("failed to find Obtainium 'Obtainium import' action")
+
+    downloads_selector = _first_visible(
+        [
+            d(textContains="Download"),
+            d(textContains="Downloads"),
+            d(descriptionContains="Download"),
+            d(descriptionContains="Downloads"),
+        ],
+        timeout=4.0,
+    )
+    if downloads_selector is not None:
+        downloads_selector.click()
+        time.sleep(0.8)
+    else:
+        roots_selector = _first_visible(
+            [
+                d(descriptionContains="Show roots"),
+                d(descriptionContains="roots"),
+            ],
+            timeout=2.0,
+        )
+        if roots_selector is not None:
+            roots_selector.click()
+            time.sleep(0.6)
+            downloads_root = _first_visible(
+                [
+                    d(textMatches=r"(?i)^downloads$"),
+                    d(textContains="Downloads"),
+                    d(descriptionContains="Downloads"),
+                ],
+                timeout=4.0,
+            )
+            if downloads_root is not None:
+                downloads_root.click()
+                time.sleep(0.8)
+
+    file_selected = False
+    for _ in range(10):
+        result_selector = _first_visible(
+            [
+                d(resourceId="android:id/title", text=file_name),
+                d(resourceId="android:id/title", textContains="obtainium-emulation-pack"),
+            ],
+            timeout=1.5,
+        )
+        if result_selector is not None:
+            result_selector.click()
+            file_selected = True
+            break
+        try:
+            xml_text = d.dump_hierarchy()
+            root = ET.fromstring(xml_text)
+            for node in root.findall(".//node"):
+                if node.attrib.get("resource-id") != "android:id/title":
+                    continue
+                title_text = (node.attrib.get("text") or "").strip()
+                if title_text != file_name and "obtainium-emulation-pack" not in title_text:
+                    continue
+                bounds = (node.attrib.get("bounds") or "").strip()
+                if not bounds.startswith("["):
+                    continue
+                points = bounds.replace("][", ",").replace("[", "").replace("]", "").split(",")
+                if len(points) != 4:
+                    continue
+                x1, y1, x2, y2 = [int(p) for p in points]
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
+                _adb_shell(
+                    adb,
+                    device_serial,
+                    f"input tap {center_x} {center_y}",
+                    check=False,
+                    timeout=10,
+                )
+                file_selected = True
+                break
+            if file_selected:
+                break
+        except Exception:
+            pass
+        try:
+            d(scrollable=True).scroll.vert.forward(steps=60)
+        except Exception:
+            _adb_shell(
+                adb,
+                device_serial,
+                "input swipe 520 1500 520 520 180",
+                check=False,
+                timeout=10,
+            )
+        time.sleep(0.5)
+
+    if not file_selected:
+        raise RuntimeError(f"failed to find imported JSON in picker: {file_name}")
+
+    _tap_if_visible(
+        [
+            d(resourceId="com.android.documentsui:id/action_menu_select"),
+            d(textMatches=r"(?i)^open$"),
+            d(textMatches=r"(?i)^select$"),
+            d(textMatches=r"(?i)^choose$"),
+            d(descriptionMatches=r"(?i)^open$"),
+            d(descriptionMatches=r"(?i)^select$"),
+            d(descriptionMatches=r"(?i)^choose$"),
+        ],
+        timeout=3.0,
+    )
+
+    if _documentsui_foreground():
+        _adb_shell(adb, device_serial, "input keyevent KEYCODE_ENTER", check=False, timeout=10)
+        _adb_shell(
+            adb,
+            device_serial,
+            "input keyevent KEYCODE_DPAD_CENTER",
+            check=False,
+            timeout=10,
+        )
+
+    _tap_if_visible(
+        [
+            d(textMatches=r"(?i)^continue$"),
+            d(textMatches=r"(?i)^next$"),
+            d(textMatches=r"(?i)^open$"),
+            d(textMatches=r"(?i)^ok$"),
+            d(textMatches=r"(?i)^import$"),
+            d(textMatches=r"(?i)^select$"),
+            d(textMatches=r"(?i)^choose$"),
+            d(textMatches=r"(?i)^done$"),
+            d(descriptionMatches=r"(?i)^continue$"),
+            d(descriptionMatches=r"(?i)^next$"),
+            d(descriptionMatches=r"(?i)^open$"),
+            d(descriptionMatches=r"(?i)^ok$"),
+            d(descriptionMatches=r"(?i)^import$"),
+        ],
+        timeout=3.0,
+    )
+
+    if not _wait_for_obtainium_foreground(timeout=15.0):
+        _adb_shell(adb, device_serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+        _tap_if_visible(
+            [
+                d(textMatches=r"(?i)^continue$"),
+                d(textMatches=r"(?i)^next$"),
+                d(textMatches=r"(?i)^open$"),
+                d(textMatches=r"(?i)^ok$"),
+                d(textMatches=r"(?i)^import$"),
+                d(textMatches=r"(?i)^select$"),
+                d(textMatches=r"(?i)^choose$"),
+                d(textMatches=r"(?i)^done$"),
+            ],
+            timeout=2.0,
+        )
+
+    if not _wait_for_obtainium_foreground(timeout=20.0):
+        if not _recover_documentsui_json_pick():
+            raise RuntimeError("Obtainium did not return to foreground after JSON file selection")
+
+    if _documentsui_foreground():
+        _adb_shell(adb, device_serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+        time.sleep(1.0)
+        if not _wait_for_obtainium_foreground(timeout=10.0):
+            raise RuntimeError("DocumentsUI remained foreground after Obtainium import")
+
+    apps_tab = _first_visible(
+        [
+            d(descriptionMatches=r"(?i)^apps.*tab 1 of 4$"),
+            d(textMatches=r"(?i)^apps$"),
+            d(descriptionContains="Apps"),
+            d(descriptionContains="Tab 1 of 4"),
+        ],
+        timeout=25.0,
+    )
+    if apps_tab is not None:
+        apps_tab.click()
+
+    _wait_for_obtainium_foreground(timeout=5.0)
+
+    no_apps_selector = _first_visible(
+        [
+            d(textMatches=r"(?i)^no apps$"),
+            d(descriptionMatches=r"(?i)^no apps$"),
+        ],
+        timeout=3.0,
+    )
+    if no_apps_selector is not None:
+        raise RuntimeError("Obtainium import did not populate apps list")
+
+    if cleanup_rpc:
+        try:
+            d.service("uiautomator").stop()
+        except Exception:
+            pass
+
+
 def _grant_apk_install_permissions(adb: str, serial: str) -> list[str]:
     installed = _list_installed_packages(adb, serial)
     report: list[str] = []
@@ -1065,11 +1808,39 @@ def _deploy_audio_assets_to_device(adb: str, serial: str, profile: str) -> None:
     )
 
 
+def _media_store_uri_for_audio_filename(adb: str, serial: str, filename: str) -> str | None:
+    listing = _adb_shell(
+        adb,
+        serial,
+        "content query --uri content://media/external/audio/media --projection _id:_display_name",
+        check=False,
+        timeout=30,
+    )
+    if listing.returncode != 0:
+        return None
+
+    for line in listing.stdout.splitlines():
+        if f"_display_name={filename}" not in line:
+            continue
+        if "_id=" not in line:
+            continue
+        media_id = line.split("_id=", 1)[1].split(",", 1)[0].strip()
+        if media_id:
+            return f"content://media/external/audio/media/{media_id}"
+
+    return None
+
+
 def _configure_system_sounds(adb: str, serial: str) -> None:
     base_path = "/storage/emulated/0/media/audio"
+    base_uri = f"file://{base_path}"
+    configured_targets: dict[str, str] = {}
 
     for setting_name, relative_path in SYSTEM_SOUND_MAP.items():
-        full_path = f"{base_path}/{relative_path}"
+        file_uri = f"{base_uri}/{relative_path}"
+        media_store_uri = _media_store_uri_for_audio_filename(adb, serial, Path(relative_path).name)
+        full_path = media_store_uri or file_uri
+        configured_targets[setting_name] = full_path
         _adb_shell(
             adb,
             serial,
@@ -1078,7 +1849,7 @@ def _configure_system_sounds(adb: str, serial: str) -> None:
             timeout=20,
         )
 
-    charging_path = f"{base_path}/{CHARGING_SOUND_RELATIVE_PATH}"
+    charging_path = f"{base_uri}/{CHARGING_SOUND_RELATIVE_PATH}"
     _adb_shell(
         adb,
         serial,
@@ -1089,10 +1860,18 @@ def _configure_system_sounds(adb: str, serial: str) -> None:
     _adb_shell(
         adb,
         serial,
+        f"settings put global charging_started_sound {shlex.quote(charging_path)}",
+        check=False,
+        timeout=20,
+    )
+    _adb_shell(
+        adb,
+        serial,
         f"settings put global wireless_charging_started_sound {shlex.quote(charging_path)}",
         check=False,
         timeout=20,
     )
+    configured_targets["charging_started_sound"] = charging_path
 
     verify = {
         "alarm_alert": _adb_shell(
@@ -1112,10 +1891,58 @@ def _configure_system_sounds(adb: str, serial: str) -> None:
             check=False,
             timeout=15,
         ),
+        "charging_started_sound": _adb_shell(
+            adb,
+            serial,
+            "settings get global charging_started_sound",
+            check=False,
+            timeout=15,
+        ),
     }
+
+    expected_suffix = {
+        "alarm_alert": SYSTEM_SOUND_MAP["alarm_alert"],
+        "notification_sound": SYSTEM_SOUND_MAP["notification_sound"],
+        "ringtone": SYSTEM_SOUND_MAP["ringtone"],
+        "charging_started_sound": CHARGING_SOUND_RELATIVE_PATH,
+    }
+
     for key, result in verify.items():
-        if not result.stdout.strip():
+        configured = result.stdout.strip().strip("'").strip('"')
+        if not configured or configured == "null":
             raise RuntimeError(f"failed to configure system sound setting: {key}")
+        target = configured_targets.get(key, "")
+        if configured == target:
+            continue
+        if target.startswith("content://") and configured.startswith(f"{target}?"):
+            continue
+        if configured.endswith(expected_suffix[key]):
+            continue
+        if configured.startswith("content://") and key in {
+            "alarm_alert",
+            "notification_sound",
+            "ringtone",
+        }:
+            continue
+        if key == "charging_started_sound" and configured.startswith("file://"):
+            continue
+        if not configured.endswith(expected_suffix[key]):
+            raise RuntimeError(f"failed to configure system sound setting: {key}")
+
+
+def _disable_auto_rotate(adb: str, serial: str) -> None:
+    _adb_shell(adb, serial, "settings put system accelerometer_rotation 0", check=False, timeout=20)
+    _adb_shell(adb, serial, "settings put system user_rotation 0", check=False, timeout=20)
+
+    current = _adb_shell(
+        adb,
+        serial,
+        "settings get system accelerometer_rotation",
+        check=False,
+        timeout=15,
+    )
+    if current.stdout.strip() != "0":
+        raise RuntimeError("failed to disable auto-rotate")
 
 
 def cmd_customize_device(
@@ -1124,6 +1951,8 @@ def cmd_customize_device(
     force: bool,
     auto_confirm_format_sd: bool,
     skip_format_sd: bool,
+    targets: list[str] | None,
+    cleanup_rpc: bool,
 ) -> int:
     try:
         adb = _adb_path()
@@ -1143,6 +1972,12 @@ def cmd_customize_device(
     if selected is None:
         return 1
 
+    try:
+        selected_targets = _normalize_customize_targets(targets)
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
     previous = read_device_state(_state_dir(), selected)
     customize_marker = previous.get("customize_device", {})
     profile_marker: dict = {}
@@ -1153,53 +1988,120 @@ def cmd_customize_device(
         elif "last_applied_at" in customize_marker:
             profile_marker = customize_marker
 
-    if profile_marker.get("last_applied_at") and not force:
+    target_marker = profile_marker.get("targets", {})
+    target_state: dict[str, dict[str, str]] = {}
+    if isinstance(target_marker, dict):
+        for key, value in target_marker.items():
+            if isinstance(key, str) and isinstance(value, dict):
+                target_state[key] = value
+
+    pending_targets = [
+        target
+        for target in selected_targets
+        if force or not isinstance(target_state.get(target, {}).get("last_applied_at"), str)
+    ]
+
+    skipped_targets = [target for target in selected_targets if target not in pending_targets]
+    if skipped_targets:
         print(
-            "Skipping customization: already applied at "
-            f"{profile_marker.get('last_applied_at', 'unknown')} for profile '{profile}' "
-            "(use --force to re-run)."
+            "Skipping already-applied targets: "
+            + ", ".join(skipped_targets)
+            + " (use --force to re-run)."
         )
+
+    if not pending_targets:
+        print(f"done: all requested targets already applied for profile '{profile}'.")
         return 0
 
     try:
-        if skip_format_sd:
-            print("Skipping SD card format step (--skip-format-sd).")
-        else:
-            _confirm_format_sd(auto_confirm=auto_confirm_format_sd)
-            _format_sd_as_public(adb, selected)
+        now_iso = datetime.now(tz=UTC).isoformat()
 
-        with tempfile.TemporaryDirectory(prefix="rhc-apks-") as apk_tmp_dir:
-            downloaded_apks = _download_latest_apks(
+        if "format-sd" in pending_targets:
+            print("step: formatting SD card as public storage")
+            if skip_format_sd:
+                print("warning: skipped format-sd target due to --skip-format-sd")
+            else:
+                _confirm_format_sd(auto_confirm=auto_confirm_format_sd)
+                _format_sd_as_public(adb, selected)
+                target_state["format-sd"] = {"last_applied_at": now_iso}
+
+        if "apks" in pending_targets:
+            print("step: installing and configuring APK targets")
+            with tempfile.TemporaryDirectory(prefix="rhc-apks-") as apk_tmp_dir:
+                downloaded_apks = _download_latest_apks(
+                    force=True,
+                    destination_dir=Path(apk_tmp_dir),
+                )
+                _install_apk(adb, selected, downloaded_apks["Obtainium"], label="Obtainium")
+            install_permission_report = _grant_apk_install_permissions(adb, selected)
+            for line in install_permission_report:
+                print(f"info: perms: {line}")
+            target_state["apks"] = {"last_applied_at": now_iso}
+
+        if "obtainium-import" in pending_targets:
+            print("step: downloading and importing Obtainium emulation pack")
+            pack_path = _download_obtainium_emulation_pack(
                 force=True,
-                destination_dir=Path(apk_tmp_dir),
+                destination_dir=DEFAULT_DOWNLOADS_DIR,
             )
-            _install_apk(adb, selected, downloaded_apks["Obtainium"], label="Obtainium")
-        install_permission_report = _grant_apk_install_permissions(adb, selected)
-        for line in install_permission_report:
-            print(f"Perms: {line}")
+            remote_path = _push_to_device_downloads(adb, selected, pack_path)
+            print(f"info: copied Obtainium pack to device: {remote_path}")
+            _automate_obtainium_import(adb, selected, pack_path, cleanup_rpc=cleanup_rpc)
+            print("done: Obtainium emulation pack import triggered")
+            target_state["obtainium-import"] = {"last_applied_at": now_iso}
 
-        scanned_count, removed_count = _remove_preloaded_roms(adb, selected)
-        print(
-            f"ROM cleanup: scanned {scanned_count}, removed {removed_count} (kept systeminfo.txt)."
-        )
+        if "rom-cleanup" in pending_targets:
+            print("step: removing preloaded ROM files")
+            scanned_count, removed_count = _remove_preloaded_roms(adb, selected)
+            print(
+                f"done: ROM cleanup: scanned {scanned_count}, removed {removed_count} "
+                "(kept systeminfo.txt)."
+            )
+            target_state["rom-cleanup"] = {"last_applied_at": now_iso}
 
-        _deploy_audio_assets_to_device(adb, selected, profile=profile)
-        _configure_system_sounds(adb, selected)
-        print("Notification sounds synced and configured.")
+        if "audio-sync" in pending_targets:
+            print("step: syncing managed audio assets")
+            _deploy_audio_assets_to_device(adb, selected, profile=profile)
+            print("done: audio assets synced")
+            target_state["audio-sync"] = {"last_applied_at": now_iso}
 
-        _set_timezone_new_york(adb, selected)
-        print("Timezone: America/New_York")
+        if "system-sounds" in pending_targets:
+            print("step: configuring system sound settings")
+            _configure_system_sounds(adb, selected)
+            print("done: system sounds configured")
+            target_state["system-sounds"] = {"last_applied_at": now_iso}
 
-        _disable_lock_screen(adb, selected)
-        print("Lockscreen disabled.")
+        if "auto-rotate" in pending_targets:
+            print("step: disabling auto-rotate")
+            _disable_auto_rotate(adb, selected)
+            print("done: auto-rotate disabled")
+            target_state["auto-rotate"] = {"last_applied_at": now_iso}
 
-        keep_data_removal_report = _remove_apps_keep_data(adb, selected)
-        for line in keep_data_removal_report:
-            print(f"Keep-data removal: {line}")
+        if "timezone" in pending_targets:
+            print("step: applying timezone America/New_York")
+            _set_timezone_new_york(adb, selected)
+            print("done: timezone set to America/New_York")
+            target_state["timezone"] = {"last_applied_at": now_iso}
 
-        app_report = _disable_or_uninstall_apps(adb, selected)
-        for line in app_report:
-            print(f"App cleanup: {line}")
+        if "lockscreen" in pending_targets:
+            print("step: disabling lock screen")
+            _disable_lock_screen(adb, selected)
+            print("done: lock screen disabled")
+            target_state["lockscreen"] = {"last_applied_at": now_iso}
+
+        if "remove-apps-keep-data" in pending_targets:
+            print("step: removing selected apps while preserving data")
+            keep_data_removal_report = _remove_apps_keep_data(adb, selected)
+            for line in keep_data_removal_report:
+                print(f"info: keep-data removal: {line}")
+            target_state["remove-apps-keep-data"] = {"last_applied_at": now_iso}
+
+        if "remove-apps" in pending_targets:
+            print("step: uninstalling/disabling selected stock apps")
+            app_report = _disable_or_uninstall_apps(adb, selected)
+            for line in app_report:
+                print(f"info: app cleanup: {line}")
+            target_state["remove-apps"] = {"last_applied_at": now_iso}
 
     except subprocess.TimeoutExpired as exc:
         print(f"error: operation timed out: {exc}", file=sys.stderr)
@@ -1215,18 +2117,81 @@ def cmd_customize_device(
         metadata={
             "customize_device": {
                 **(customize_marker if isinstance(customize_marker, dict) else {}),
-                profile: {"last_applied_at": datetime.now(tz=UTC).isoformat()},
+                profile: {
+                    **(profile_marker if isinstance(profile_marker, dict) else {}),
+                    "targets": target_state,
+                    "last_applied_at": datetime.now(tz=UTC).isoformat(),
+                },
             },
         },
     )
-    print("Customization complete.")
+    print("done: customization complete")
     return 0
+
+
+def cmd_verify_device_settings(serial: str | None) -> int:
+    try:
+        adb = _adb_path()
+        devices = _connected_devices(adb)
+    except subprocess.TimeoutExpired:
+        print(
+            "error: timed out waiting for `adb devices`; check USB mode/authorization",
+            file=sys.stderr,
+        )
+        return 1
+    except (subprocess.CalledProcessError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    selected = _select_device(serial, devices)
+    if selected is None:
+        return 1
+
+    settings_to_check = [
+        ("ringtone", "system"),
+        ("alarm_alert", "system"),
+        ("notification_sound", "system"),
+        ("charging_started_sound", "global"),
+        ("accelerometer_rotation", "system"),
+    ]
+
+    failed = False
+    for setting_name, namespace in settings_to_check:
+        result = _adb_shell(
+            adb,
+            selected,
+            f"settings get {namespace} {setting_name}",
+            check=False,
+            timeout=15,
+        )
+        value = result.stdout.strip() if result.returncode == 0 else "<error>"
+        print(f"{namespace}.{setting_name}={value}")
+        if result.returncode != 0:
+            failed = True
+
+    return 1 if failed else 0
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="rhc",
         description="Retro handheld config manager.",
+    )
+    parser.add_argument(
+        "--output",
+        choices=sorted(OUTPUT_MODES),
+        default=_default_output_mode(),
+        help="Output mode: human-readable text (default) or JSON lines.",
+    )
+    parser.add_argument(
+        "--log-file",
+        default=os.environ.get("RHC_LOG_FILE"),
+        help="Optional path to append structured JSON log events.",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI color output in text mode.",
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1366,6 +2331,29 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip SD card formatting step.",
     )
+    customize_parser.add_argument(
+        "--target",
+        action="append",
+        choices=["all", *CUSTOMIZE_TARGETS_ORDER],
+        help=(
+            "Run only specific customization targets. Repeat for multiple values "
+            "(default: all targets)."
+        ),
+    )
+    customize_parser.add_argument(
+        "--cleanup-rpc",
+        action="store_true",
+        help="Stop uiautomator RPC service after Obtainium import automation completes.",
+    )
+
+    verify_settings_parser = subparsers.add_parser(
+        "verify-device-settings",
+        help="Print key sound and rotation settings from a connected ADB device.",
+    )
+    verify_settings_parser.add_argument(
+        "--serial",
+        help="ADB serial to target. Defaults to first connected device.",
+    )
 
     return parser
 
@@ -1376,6 +2364,7 @@ def main(argv: list[str] | None = None) -> int:
     if parsed_argv and parsed_argv[0] == "pull-vanilla":
         parsed_argv[0] = "pull-backup"
     args = parser.parse_args(parsed_argv)
+    configure_output(mode=args.output, log_file=args.log_file, no_color=args.no_color)
 
     if args.command == "hello":
         return cmd_hello(serial=args.serial)
@@ -1405,7 +2394,11 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             auto_confirm_format_sd=args.yes_format_sd,
             skip_format_sd=args.skip_format_sd,
+            targets=args.target,
+            cleanup_rpc=args.cleanup_rpc,
         )
+    if args.command == "verify-device-settings":
+        return cmd_verify_device_settings(serial=args.serial)
 
     parser.error(f"Unknown command: {args.command}")
     return 2
