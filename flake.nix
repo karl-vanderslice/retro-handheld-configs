@@ -18,6 +18,18 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        inherit (pkgs)
+          age
+          android-tools
+          bitwarden-cli
+          coreutils
+          git
+          gnugrep
+          just
+          mkdocs
+          pre-commit
+          ruff
+          ;
         python = pkgs.python312;
         pythonPackages = pkgs.python312Packages;
 
@@ -96,8 +108,8 @@
         conventionalCommitCheck = pkgs.writeShellApplication {
           name = "conventional-commit-check";
           runtimeInputs = [
-            pkgs.gnugrep
-            pkgs.coreutils
+            gnugrep
+            coreutils
           ];
           text = ''
             set -euo pipefail
@@ -109,6 +121,46 @@
               echo "Expected: type(scope?): description" >&2
               echo "Allowed types: build,chore,ci,docs,feat,fix,perf,refactor,revert,style,test" >&2
               echo "Got: $firstLine" >&2
+              exit 1
+            fi
+          '';
+        };
+
+        encryptedBackupCheck = pkgs.writeShellApplication {
+          name = "ensure-encrypted-backups";
+          runtimeInputs = [
+            git
+            gnugrep
+            coreutils
+          ];
+          text = ''
+            set -euo pipefail
+
+            tracked_files="$(git ls-files -- backups/Android backups/Android/aurora-store/current || true)"
+            if [[ -z "$tracked_files" ]]; then
+              exit 0
+            fi
+
+            if printf '%s\n' "$tracked_files" | grep -E '\.(tar|zip|tgz|gz|7z)$' >/dev/null; then
+              echo "Archive files are not allowed under backups/Android." >&2
+              printf '%s\n' "$tracked_files" | grep -E '\.(tar|zip|tgz|gz|7z)$' >&2 || true
+              exit 1
+            fi
+
+            aurora_tracked="$(printf '%s\n' "$tracked_files" | grep '^backups/Android/aurora-store/current/' || true)"
+            if [[ -z "$aurora_tracked" ]]; then
+              exit 0
+            fi
+
+            invalid_files="$(
+              printf '%s\n' "$aurora_tracked" | grep -Ev \
+                '^backups/Android/aurora-store/current/metadata\.json$|^backups/Android/aurora-store/current/encrypted/.+\.age$' \
+                || true
+            )"
+
+            if [[ -n "$invalid_files" ]]; then
+              echo "Unencrypted Aurora backup files detected; only metadata.json and .age files are allowed:" >&2
+              printf '%s\n' "$invalid_files" >&2
               exit 1
             fi
           '';
@@ -143,6 +195,14 @@
               stages = [ "commit-msg" ];
               always_run = true;
             };
+
+            encrypted-backups = {
+              enable = true;
+              name = "encrypted-backups";
+              entry = "${encryptedBackupCheck}/bin/ensure-encrypted-backups";
+              pass_filenames = false;
+              always_run = true;
+            };
           };
         };
       in
@@ -155,14 +215,16 @@
           inherit (preCommitCheck) shellHook;
 
           packages = [
-            pkgs.android-tools
-            pkgs.just
-            pkgs.git
-            pkgs.mkdocs
-            pkgs.python312Packages.pytest
-            pkgs.python312Packages.mkdocs-material
-            pkgs.pre-commit
-            pkgs.ruff
+            android-tools
+            age
+            bitwarden-cli
+            just
+            git
+            mkdocs
+            pythonPackages.pytest
+            pythonPackages.mkdocs-material
+            pre-commit
+            ruff
             python
             uiautomator2
             rhc

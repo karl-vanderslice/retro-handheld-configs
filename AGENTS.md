@@ -31,6 +31,9 @@ This repository is intended for agent-assisted management of retro handheld devi
 - If a CLI is required, add it to `flake.nix` and invoke it through `nix develop -c ...`.
 - Exclude Firebase telemetry/crash artifacts from backups.
 - Linting/formatting/pre-commit checks must ignore `backups/`.
+- Treat device customization behavior as profile-specific. The current active target is
+  `retroid-pocket-classic-6-button-gammaos-next`; do not assume all future devices share
+  identical app-removal, install, or tuning rules.
 
 ## Safety rules
 

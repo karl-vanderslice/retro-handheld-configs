@@ -1,0 +1,9 @@
+{
+  "package": "com.aurora.store",
+  "serial": "MC94516AYF111102015",
+  "backup_dir": "current",
+  "encrypted_with": "age-identity",
+  "bitwarden_item": "",
+  "identity_file": ".rhc-secrets/age-identity.txt",
+  "file_count": 3
+}

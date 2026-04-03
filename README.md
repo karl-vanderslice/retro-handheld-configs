@@ -2,6 +2,10 @@
 
 Scriptable, extensible tooling + config repo for retro handheld devices.
 
+Current active customization scope is the Retroid Pocket Classic 6-button profile.
+New devices should use profile-specific customization mappings rather than reusing
+this device's assumptions by default.
+
 This project manages:
 
 - Device and emulator configs
@@ -38,6 +42,9 @@ just customize-auto
 just format-sd yes_format_sd=true
 just configure-apks
 just import-obtainium-pack cleanup_rpc=true
+just adb-root
+just backup-aurora-secure
+just restore-aurora-secure
 just migrate-state dry_run=true
 just state-doctor
 just docs-build
@@ -63,7 +70,14 @@ Global CLI output options for all commands:
 	- formats SD card as removable/public storage by default (or use `--yes-format-sd` for non-interactive confirm)
 	- use `--skip-format-sd` to leave SD card untouched
 	- downloads latest Obtainium APK at runtime (temporary directory), installs it, and enables install-other-apps app-op for Obtainium and Aurora Store
+	- restores encrypted Aurora backup after APK setup (kills Aurora process before restore)
+	- installs from Aurora Store:
+		- Firefox
+		- Daijishō
+		- YabaSanshiro 2 Pro (6-button Retroid profile only)
 	- downloads latest single-device Obtainium Emulation Pack JSON, copies it to `/sdcard/Download/`, and automates Obtainium import via `uiautomator2`
+	- ensures required apps from the imported Obtainium JSON are installed: `RetroArch AArch64`, `Argosy`, and `GameNative`
+	  - uses JSON source definitions to sideload latest APKs (GitHub sources include prerelease/nightly assets when newest)
 	- supports `--cleanup-rpc` to stop `uiautomator2` RPC service after import automation
 	- removes preloaded ROM files under `/storage/emulated/0/ROMs` while preserving `systeminfo.txt`
 	- pushes `managed/<profile>/media/audio` to `/storage/emulated/0/media/audio` preserving structure
@@ -72,12 +86,33 @@ Global CLI output options for all commands:
 		- `lightning_shield` as charging sound
 		- `sonic_ring` as default notification
 		- `star_light_zone` as ringtone
+		- lowers ring/notification/alarm volumes to a handheld-friendly level
 	- sets timezone to `America/New_York`
 	- disables lock screen
-	- removes M64Plus FZ and PPSSPP for user 0 while keeping app data (`pm uninstall -k --user 0`)
+	- removes DraStic, M64Plus FZ, PPSSPP, and Flycast for user 0 while keeping app data (`pm uninstall -k --user 0`)
+	  - Flycast package for this profile: `com.flycast.emulator`
 	- disables or uninstalls Browser, Calendar, Camera, Clock, Files app, Gallery, MIX Explorer, Music, and Sim Toolkit when present
-	- supports `--target` (repeatable) for partial runs: `format-sd`, `apks`, `obtainium-import`, `rom-cleanup`, `audio-sync`, `system-sounds`, `auto-rotate`, `timezone`, `lockscreen`, `remove-apps-keep-data`, `remove-apps`
+	- supports `--target` (repeatable) for partial runs: `format-sd`, `apks`, `aurora-restore`, `aurora-install-apps`, `obtainium-import`, `rom-cleanup`, `audio-sync`, `system-sounds`, `auto-rotate`, `timezone`, `lockscreen`, `remove-apps-keep-data`, `remove-apps`
 	- supports machine-friendly output with `--output json` and persisted event logs via `--log-file`
+
+Encrypted Android app backup workflows:
+
+- `just bootstrap-age-key` — pulls the `age` identity from Bitwarden and writes it to a local untracked file (default: `.rhc-secrets/age-identity.txt`).
+	- Requires Bitwarden to be unlocked in the current shell (`BW_SESSION`).
+	- Uses `RHC_BW_AGE_ITEM` or `bw_item="..."` to select the source item.
+	- Uses `RHC_AGE_IDENTITY_FILE` or `out_file="..."` for destination path.
+- `just backup-aurora-secure` — captures Aurora Store private + external app data over ADB and writes only `age`-encrypted files into `backups/Android/aurora-store/current/encrypted/`.
+	- Uses a local identity file when available (`RHC_AGE_IDENTITY_FILE` or `--identity-file`), otherwise reads from Bitwarden (`RHC_BW_AGE_ITEM` / `--bw-item`).
+	- You can also pass the item through `just`: `just backup-aurora-secure bw_item="<item-id-or-name>"`.
+	- You can also pass the identity file through `just`: `just backup-aurora-secure identity_file=".rhc-secrets/age-identity.txt"`.
+	- Uses a single in-repo backup version (`current`) and replaces it on each run.
+	- No tarballs/archives are retained in-repo by this workflow.
+- `just restore-aurora-secure` — decrypts the `current` Aurora backup and restores it to device storage.
+	- Uses a local identity file when available (`RHC_AGE_IDENTITY_FILE` or `--identity-file`), otherwise reads from Bitwarden (`RHC_BW_AGE_ITEM` / `--bw-item` / metadata hint).
+	- You can also pass the item through `just`: `just restore-aurora-secure bw_item="<item-id-or-name>"`.
+	- You can also pass the identity file through `just`: `just restore-aurora-secure identity_file=".rhc-secrets/age-identity.txt"`.
+	- Force-stops Aurora (`am force-stop com.aurora.store`) before restore.
+	- Uses a single backup version (`current`).
 
 `just customize-auto` skips SD formatting by default; pass `format_sd="true"` to include formatting.
 
@@ -105,8 +140,14 @@ Profiles live in `configs/devices/*.toml`.
 Included profile:
 
 - `retroid-pocket-classic-6-button-gammaos-next`
+	- Primary use: Sega, DOS, and Arcade emulation workflows.
 	- OS: GammaOS Next `v.1.0.0-RETROIDPOCKETCLASSIC`
 	- Tier: `GammaOSNext` (custom OS; not stock)
+	- ADB root guidance:
+		- Run `just adb-root` before root-sensitive pulls/restores.
+		- If it reports root is disabled by system setting, enable on-device:
+			- `Settings -> System -> Developer options -> ADB Root access` (or `Rooted debugging` on some builds).
+		- Re-run `just adb-root` after enabling the setting.
 	- Pull paths:
 		- `/storage/emulated/0/PSP`
 		- `/storage/emulated/0/Retroarch`

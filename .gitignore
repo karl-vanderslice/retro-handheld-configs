@@ -19,6 +19,7 @@ __pycache__/
 /managed/*/secrets/
 .env.local
 .envrc.local
+.rhc-secrets/
 
 # MkDocs build output
 site/

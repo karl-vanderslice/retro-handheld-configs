@@ -4,6 +4,7 @@ import argparse
 import builtins
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -13,6 +14,7 @@ import tempfile
 import time
 import tomllib
 import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
@@ -90,8 +92,19 @@ APP_PACKAGE_CANDIDATES = {
 }
 
 APP_REMOVE_KEEP_DATA_CANDIDATES = {
+    "DraStic": ["com.dsemu.drastic"],
     "M64Plus FZ": ["org.mupen64plusae.v3.fzurita"],
     "PPSSPP": ["org.ppsspp.ppsspp", "org.ppsspp.ppssppgold"],
+    "Flycast": ["com.flycast.emulator"],
+}
+APP_REMOVE_KEEP_DATA_DEFAULT = ["DraStic", "M64Plus FZ", "PPSSPP"]
+APP_REMOVE_KEEP_DATA_BY_PROFILE = {
+    "retroid-pocket-classic-6-button-gammaos-next": [
+        "DraStic",
+        "M64Plus FZ",
+        "PPSSPP",
+        "Flycast",
+    ],
 }
 
 MANAGED_AUDIO_DIR = Path("managed") / "media" / "audio"
@@ -125,6 +138,45 @@ APK_PERMISSION_PACKAGE_CANDIDATES = {
     "Aurora Store": ["com.aurora.store"],
 }
 
+AURORA_REQUIRED_APPS = [
+    {
+        "name": "Firefox",
+        "url": "https://play.google.com/store/apps/details?id=org.mozilla.firefox",
+        "packages": ["org.mozilla.firefox"],
+    },
+    {
+        "name": "Daijishō",
+        "url": "https://play.google.com/store/apps/details?id=com.magneticchen.daijishou",
+        "packages": ["com.magneticchen.daijishou", "com.magneticchen.daijisho"],
+    },
+]
+
+AURORA_REQUIRED_APPS_6_BUTTON_ONLY = [
+    {
+        "name": "YabaSanshiro 2 Pro",
+        "url": "https://play.google.com/store/apps/details?id=org.devmiyax.yabasanshioro2.pro",
+        "packages": ["org.devmiyax.yabasanshioro2.pro", "org.devmiyax.yabasanshiro2.pro"],
+    },
+]
+
+OBTAINIUM_REQUIRED_APPS = [
+    {
+        "name": "RetroArch AArch64",
+        "source_name": "RetroArch (AArch64)",
+        "package_candidates": ["com.retroarch.aarch64", "com.retroarch"],
+    },
+    {
+        "name": "Argosy",
+        "source_name": "Argosy",
+        "package_candidates": [],
+    },
+    {
+        "name": "GameNative",
+        "source_name": "GameNative",
+        "package_candidates": [],
+    },
+]
+
 SYSTEM_SOUND_MAP = {
     "alarm_alert": "alarms/go_straight.mp3",
     "notification_sound": "notifications/sonic_ring.mp3",
@@ -132,6 +184,26 @@ SYSTEM_SOUND_MAP = {
 }
 
 CHARGING_SOUND_RELATIVE_PATH = "notifications/lightning_shield.mp3"
+SYSTEM_VOLUME_PROFILE = {
+    "ring": {
+        "stream_id": 2,
+        "stream_name": "ring",
+        "fallback_setting": "volume_ring",
+        "ratio": 0.35,
+    },
+    "notification": {
+        "stream_id": 5,
+        "stream_name": "notification",
+        "fallback_setting": "volume_notification",
+        "ratio": 0.35,
+    },
+    "alarm": {
+        "stream_id": 4,
+        "stream_name": "alarm",
+        "fallback_setting": "volume_alarm",
+        "ratio": 0.35,
+    },
+}
 DEFAULT_PROFILE = "retroid-pocket-classic-6-button-gammaos-next"
 
 OUTPUT_TEXT = "text"
@@ -141,6 +213,8 @@ OUTPUT_MODES = {OUTPUT_TEXT, OUTPUT_JSON}
 CUSTOMIZE_TARGETS_ORDER = [
     "format-sd",
     "apks",
+    "aurora-restore",
+    "aurora-install-apps",
     "obtainium-import",
     "rom-cleanup",
     "audio-sync",
@@ -158,6 +232,8 @@ CUSTOMIZE_TARGET_ALIASES = {
     "apk-config": "apks",
     "obtainium": "obtainium-import",
     "obtainium-pack": "obtainium-import",
+    "aurora-restore-backup": "aurora-restore",
+    "aurora-apps": "aurora-install-apps",
     "roms": "rom-cleanup",
     "audio": "audio-sync",
     "sounds": "system-sounds",
@@ -1133,11 +1209,17 @@ def _disable_or_uninstall_apps(adb: str, serial: str) -> list[str]:
     return report
 
 
-def _remove_apps_keep_data(adb: str, serial: str) -> list[str]:
+def _remove_apps_keep_data(adb: str, serial: str, profile: str) -> list[str]:
     installed = _list_installed_packages(adb, serial)
     report: list[str] = []
+    target_app_names = APP_REMOVE_KEEP_DATA_BY_PROFILE.get(profile, APP_REMOVE_KEEP_DATA_DEFAULT)
 
-    for app_name, package_candidates in APP_REMOVE_KEEP_DATA_CANDIDATES.items():
+    for app_name in target_app_names:
+        package_candidates = APP_REMOVE_KEEP_DATA_CANDIDATES.get(app_name, [])
+        if not package_candidates:
+            report.append(f"{app_name}: no package candidates configured")
+            continue
+
         target = next((pkg for pkg in package_candidates if pkg in installed), None)
         if target is None:
             report.append(f"{app_name}: not installed")
@@ -1306,6 +1388,42 @@ def _automate_obtainium_import(
                     except Exception:
                         pass
                     continue
+            time.sleep(0.4)
+        return None
+
+    def _find_app_entry_with_scroll(selectors: list[object], passes: int = 25) -> object | None:
+        for _ in range(passes):
+            entry = _first_visible(selectors, timeout=2.0)
+            if entry is not None:
+                return entry
+            try:
+                d(scrollable=True).scroll.vert.forward(steps=60)
+            except Exception:
+                _adb_shell(
+                    adb,
+                    device_serial,
+                    "input swipe 520 1500 520 520 180",
+                    check=False,
+                    timeout=10,
+                )
+            time.sleep(0.4)
+        return None
+
+    def _find_app_entry_with_scroll(selectors: list[object], passes: int = 10) -> object | None:
+        for _ in range(passes):
+            entry = _first_visible(selectors, timeout=2.0)
+            if entry is not None:
+                return entry
+            try:
+                d(scrollable=True).scroll.vert.forward(steps=60)
+            except Exception:
+                _adb_shell(
+                    adb,
+                    device_serial,
+                    "input swipe 520 1500 520 520 180",
+                    check=False,
+                    timeout=10,
+                )
             time.sleep(0.4)
         return None
 
@@ -1762,25 +1880,364 @@ def _grant_apk_install_permissions(adb: str, serial: str) -> list[str]:
             report.append(f"{app_name}: unable to set appops ({package_name})")
 
         if app_name == "Obtainium":
-            post_notifications = _adb_shell(
+            _adb_shell(
                 adb,
                 serial,
                 f"pm grant {shlex.quote(package_name)} android.permission.POST_NOTIFICATIONS",
                 check=False,
                 timeout=20,
             )
-            appops_notification = _adb_shell(
+            _adb_shell(
                 adb,
                 serial,
                 f"appops set {shlex.quote(package_name)} POST_NOTIFICATION allow",
                 check=False,
                 timeout=20,
             )
+            notification_state = _adb_shell(
+                adb,
+                serial,
+                f"appops get {shlex.quote(package_name)} POST_NOTIFICATION",
+                check=False,
+                timeout=20,
+            )
 
-            if post_notifications.returncode == 0 or appops_notification.returncode == 0:
+            if "allow" not in notification_state.stdout.lower():
+                _adb_shell(
+                    adb,
+                    serial,
+                    f"cmd appops set {shlex.quote(package_name)} POST_NOTIFICATION allow",
+                    check=False,
+                    timeout=20,
+                )
+                notification_state = _adb_shell(
+                    adb,
+                    serial,
+                    f"appops get {shlex.quote(package_name)} POST_NOTIFICATION",
+                    check=False,
+                    timeout=20,
+                )
+
+            if "allow" in notification_state.stdout.lower():
                 report.append(f"Obtainium: notifications allowed ({package_name})")
             else:
                 report.append(f"Obtainium: unable to grant notifications ({package_name})")
+
+    return report
+
+
+def _restore_aurora_backup(adb: str, serial: str) -> None:
+    script_path = Path("scripts") / "restore_aurora_secure.sh"
+    if not script_path.exists():
+        raise RuntimeError(f"restore script not found: {script_path}")
+
+    subprocess.run(
+        ["bash", str(script_path), "--serial", serial],
+        check=True,
+        timeout=900,
+    )
+
+
+def _wait_for_package_install(
+    adb: str,
+    serial: str,
+    package_candidates: list[str],
+    timeout_seconds: int = 240,
+) -> str | None:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        installed = _list_installed_packages(adb, serial)
+        for package_name in package_candidates:
+            if package_name in installed:
+                return package_name
+        time.sleep(2)
+    return None
+
+
+def _install_apps_from_aurora(adb: str, serial: str, profile: str) -> list[str]:
+    try:
+        import uiautomator2 as u2
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError(
+            "uiautomator2 is required for Aurora install automation. "
+            "Use the Nix dev shell with uiautomator2 available."
+        ) from exc
+
+    installed = _list_installed_packages(adb, serial)
+    aurora_package = next(
+        (pkg for pkg in APK_PERMISSION_PACKAGE_CANDIDATES["Aurora Store"] if pkg in installed),
+        None,
+    )
+    if aurora_package is None:
+        raise RuntimeError("Aurora Store is not installed")
+
+    app_specs = list(AURORA_REQUIRED_APPS)
+    if profile == DEFAULT_PROFILE:
+        app_specs.extend(AURORA_REQUIRED_APPS_6_BUTTON_ONLY)
+
+    d = u2.connect(serial)
+    report: list[str] = []
+
+    def _first_visible(candidates: list[object], timeout: float) -> object | None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            for candidate in candidates:
+                try:
+                    if candidate.exists:
+                        return candidate
+                except Exception:
+                    continue
+            time.sleep(0.4)
+        return None
+
+    for spec in app_specs:
+        package_name = next((pkg for pkg in spec["packages"] if pkg in installed), None)
+        if package_name:
+            report.append(f"{spec['name']}: already installed ({package_name})")
+            continue
+
+        _adb_shell(
+            adb,
+            serial,
+            f"am start -a android.intent.action.VIEW -d {shlex.quote(spec['url'])}",
+            check=False,
+            timeout=30,
+        )
+
+        install_button = _first_visible(
+            [
+                d(textMatches=r"(?i)^install$"),
+                d(textMatches=r"(?i)^update$"),
+                d(textMatches=r"(?i)^buy$"),
+                d(textMatches=r"^\$[0-9]+([.,][0-9]{2})?$"),
+                d(descriptionMatches=r"(?i)^install$"),
+                d(descriptionMatches=r"(?i)^update$"),
+                d(descriptionMatches=r"(?i)^buy$"),
+                d(descriptionMatches=r"^\$[0-9]+([.,][0-9]{2})?$"),
+            ],
+            timeout=45.0,
+        )
+
+        if install_button is not None:
+            install_button.click()
+            _first_visible(
+                [
+                    d(textMatches=r"(?i)^continue$"),
+                    d(textMatches=r"(?i)^ok$"),
+                    d(textMatches=r"(?i)^allow$"),
+                ],
+                timeout=2.0,
+            )
+
+        installed_package = _wait_for_package_install(
+            adb, serial, spec["packages"], timeout_seconds=240
+        )
+        if installed_package is None:
+            raise RuntimeError(f"failed to install via Aurora: {spec['name']}")
+
+        installed.add(installed_package)
+        report.append(f"{spec['name']}: installed ({installed_package})")
+
+    _adb_shell(adb, serial, f"am force-stop {shlex.quote(aurora_package)}", check=False, timeout=20)
+    return report
+
+
+def _install_required_obtainium_apps(adb: str, serial: str) -> list[str]:
+    raise RuntimeError("_install_required_obtainium_apps now requires pack_path")
+
+
+def _parse_github_repo(url: str) -> tuple[str, str] | None:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.netloc.lower() not in {"github.com", "www.github.com"}:
+        return None
+    parts = [part for part in parsed.path.split("/") if part]
+    if len(parts) < 2:
+        return None
+    return parts[0], parts[1]
+
+
+def _resolve_github_apk_url(repo_url: str) -> str:
+    repo = _parse_github_repo(repo_url)
+    if repo is None:
+        raise RuntimeError(f"invalid GitHub repo URL: {repo_url}")
+    owner, name = repo
+    api_url = f"https://api.github.com/repos/{owner}/{name}/releases?per_page=30"
+    request = urllib.request.Request(
+        api_url,
+        headers={
+            "User-Agent": "retro-handheld-configs/0.1 (+https://github.com/karl-vanderslice)",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        releases = json.loads(response.read().decode("utf-8"))
+
+    if not isinstance(releases, list) or not releases:
+        raise RuntimeError(f"no releases found for {owner}/{name}")
+
+    for release in releases:
+        if not isinstance(release, dict):
+            continue
+        if release.get("draft") is True:
+            continue
+
+        assets = release.get("assets")
+        if not isinstance(assets, list) or not assets:
+            continue
+
+        preferred: str | None = None
+        fallback: str | None = None
+        for asset in assets:
+            if not isinstance(asset, dict):
+                continue
+            asset_name = asset.get("name")
+            download_url = asset.get("browser_download_url")
+            if not isinstance(asset_name, str) or not isinstance(download_url, str):
+                continue
+            lowered = asset_name.lower()
+            if not lowered.endswith(".apk"):
+                continue
+            if fallback is None:
+                fallback = download_url
+            if any(token in lowered for token in ["arm64", "aarch64", "universal"]):
+                preferred = download_url
+                break
+
+        if preferred:
+            return preferred
+        if fallback:
+            return fallback
+
+    raise RuntimeError(f"unable to find APK asset for {owner}/{name}")
+
+
+def _resolve_libretro_stable_aarch64_apk_url(base_url: str) -> str:
+    request = urllib.request.Request(
+        base_url,
+        headers={
+            "User-Agent": "retro-handheld-configs/0.1 (+https://github.com/karl-vanderslice)",
+            "Accept": "text/html,*/*",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        html = response.read().decode("utf-8", "ignore")
+
+    version_links = re.findall(r"href=['\"]([^'\"]*/stable/[0-9]+\.[0-9]+\.[0-9]+/)['\"]", html)
+    if not version_links:
+        version_links = re.findall(r"href=['\"]([^'\"]+/stable/[0-9]+\.[0-9]+\.[0-9]+/)['\"]", html)
+
+    versions: list[tuple[tuple[int, int, int], str]] = []
+    for link in version_links:
+        match = re.search(r"/stable/([0-9]+)\.([0-9]+)\.([0-9]+)/", link)
+        if match is None:
+            continue
+        ver_tuple = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        versions.append((ver_tuple, urllib.parse.urljoin(base_url + "/", link)))
+
+    if not versions:
+        raise RuntimeError("unable to resolve RetroArch stable version path")
+
+    versions.sort(key=lambda item: item[0], reverse=True)
+    latest_version_url = versions[0][1]
+    android_url = urllib.parse.urljoin(latest_version_url, "android/")
+
+    request = urllib.request.Request(
+        android_url,
+        headers={
+            "User-Agent": "retro-handheld-configs/0.1 (+https://github.com/karl-vanderslice)",
+            "Accept": "text/html,*/*",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        html = response.read().decode("utf-8", "ignore")
+
+    links = re.findall(r"href=['\"]([^'\"]+\.apk)['\"]", html)
+    if not links:
+        raise RuntimeError("unable to locate RetroArch APK in buildbot index")
+
+    preferred: str | None = None
+    fallback: str | None = None
+    for link in links:
+        lowered = link.lower()
+        candidate = urllib.parse.urljoin(android_url, link)
+        if fallback is None:
+            fallback = candidate
+        if "aarch64" in lowered or "arm64" in lowered:
+            preferred = candidate
+            break
+
+    if preferred:
+        return preferred
+    if fallback:
+        return fallback
+    raise RuntimeError("unable to determine RetroArch APK URL")
+
+
+def _resolve_required_app_apk_url(pack_app: dict[str, Any]) -> str:
+    source_url = str(pack_app.get("url", "")).strip()
+    override_source = str(pack_app.get("overrideSource", "")).strip().lower()
+    if not source_url:
+        raise RuntimeError("missing source URL in Obtainium pack entry")
+
+    if override_source == "github":
+        return _resolve_github_apk_url(source_url)
+
+    if override_source == "html" and "buildbot.libretro.com/stable" in source_url:
+        return _resolve_libretro_stable_aarch64_apk_url(source_url)
+
+    if source_url.lower().endswith(".apk"):
+        return source_url
+
+    raise RuntimeError(
+        f"unsupported Obtainium source for sideload: {override_source or source_url}"
+    )
+
+
+def _install_required_obtainium_apps(
+    adb: str,
+    serial: str,
+    pack_path: Path,
+) -> list[str]:
+    payload = json.loads(pack_path.read_text(encoding="utf-8"))
+    raw_apps = payload.get("apps")
+    if not isinstance(raw_apps, list):
+        raise RuntimeError(f"invalid Obtainium pack format: {pack_path}")
+
+    app_by_name: dict[str, dict[str, Any]] = {}
+    for app in raw_apps:
+        if not isinstance(app, dict):
+            continue
+        name = app.get("name")
+        if isinstance(name, str) and name:
+            app_by_name[name] = app
+
+    installed = _list_installed_packages(adb, serial)
+    report: list[str] = []
+
+    with tempfile.TemporaryDirectory(prefix="rhc-obtainium-apk-") as tmp_dir:
+        tmp_root = Path(tmp_dir)
+        for app_spec in OBTAINIUM_REQUIRED_APPS:
+            app_name = str(app_spec["name"])
+            source_name = str(app_spec.get("source_name", app_name))
+            package_candidates = [str(pkg) for pkg in app_spec.get("package_candidates", [])]
+
+            already_installed = next((pkg for pkg in package_candidates if pkg in installed), None)
+            if already_installed is not None:
+                report.append(f"{app_name}: already installed ({already_installed})")
+                continue
+
+            pack_app = app_by_name.get(source_name)
+            if pack_app is None:
+                raise RuntimeError(f"required Obtainium entry not found in pack: {source_name}")
+
+            apk_url = _resolve_required_app_apk_url(pack_app)
+            apk_name = urllib.parse.urlparse(apk_url).path.split("/")[-1] or f"{source_name}.apk"
+            destination = tmp_root / apk_name
+            _download_file(apk_url, destination)
+            _install_apk(adb, serial, destination, app_name)
+
+            installed = _list_installed_packages(adb, serial)
+            report.append(f"{app_name}: sideloaded from Obtainium source")
 
     return report
 
@@ -1929,6 +2386,70 @@ def _configure_system_sounds(adb: str, serial: str) -> None:
         if not configured.endswith(expected_suffix[key]):
             raise RuntimeError(f"failed to configure system sound setting: {key}")
 
+    _configure_system_sound_volumes(adb, serial)
+
+
+def _read_stream_volume(adb: str, serial: str, stream_id: int) -> tuple[int, int] | None:
+    result = _adb_shell(
+        adb,
+        serial,
+        f"media volume --stream {stream_id} --get",
+        check=False,
+        timeout=20,
+    )
+    if result.returncode != 0:
+        return None
+
+    output = result.stdout.strip()
+    match = re.search(r"volume\s+is\s+(\d+)\s+in\s+range\s+\[0\.\.(\d+)\]", output)
+    if match is None:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _configure_system_sound_volumes(adb: str, serial: str) -> None:
+    for _, profile in SYSTEM_VOLUME_PROFILE.items():
+        stream_id = int(profile["stream_id"])
+        stream_name = str(profile["stream_name"])
+        fallback_setting = str(profile["fallback_setting"])
+        ratio = float(profile["ratio"])
+
+        current = _read_stream_volume(adb, serial, stream_id)
+        if current is not None:
+            _, max_volume = current
+            target_volume = max(1, int(round(max_volume * ratio)))
+
+            _adb_shell(
+                adb,
+                serial,
+                f"media volume --stream {stream_id} --set {target_volume}",
+                check=False,
+                timeout=20,
+            )
+
+            updated = _read_stream_volume(adb, serial, stream_id)
+            if updated is not None:
+                current_volume, _ = updated
+                if current_volume <= target_volume:
+                    continue
+
+        _adb_shell(
+            adb,
+            serial,
+            f"settings put system {fallback_setting} 3",
+            check=False,
+            timeout=20,
+        )
+        fallback_verify = _adb_shell(
+            adb,
+            serial,
+            f"settings get system {fallback_setting}",
+            check=False,
+            timeout=15,
+        )
+        if fallback_verify.stdout.strip() != "3":
+            raise RuntimeError(f"failed to configure {stream_name} volume")
+
 
 def _disable_auto_rotate(adb: str, serial: str) -> None:
     _adb_shell(adb, serial, "settings put system accelerometer_rotation 0", check=False, timeout=20)
@@ -2038,6 +2559,19 @@ def cmd_customize_device(
                 print(f"info: perms: {line}")
             target_state["apks"] = {"last_applied_at": now_iso}
 
+        if "aurora-restore" in pending_targets:
+            print("step: restoring encrypted Aurora backup")
+            _restore_aurora_backup(adb, selected)
+            print("done: Aurora backup restored")
+            target_state["aurora-restore"] = {"last_applied_at": now_iso}
+
+        if "aurora-install-apps" in pending_targets:
+            print("step: installing required apps from Aurora")
+            aurora_install_report = _install_apps_from_aurora(adb, selected, profile)
+            for line in aurora_install_report:
+                print(f"info: aurora installs: {line}")
+            target_state["aurora-install-apps"] = {"last_applied_at": now_iso}
+
         if "obtainium-import" in pending_targets:
             print("step: downloading and importing Obtainium emulation pack")
             pack_path = _download_obtainium_emulation_pack(
@@ -2047,7 +2581,10 @@ def cmd_customize_device(
             remote_path = _push_to_device_downloads(adb, selected, pack_path)
             print(f"info: copied Obtainium pack to device: {remote_path}")
             _automate_obtainium_import(adb, selected, pack_path, cleanup_rpc=cleanup_rpc)
-            print("done: Obtainium emulation pack import triggered")
+            obtainium_install_report = _install_required_obtainium_apps(adb, selected, pack_path)
+            for line in obtainium_install_report:
+                print(f"info: obtainium installs: {line}")
+            print("done: Obtainium import and required installs complete")
             target_state["obtainium-import"] = {"last_applied_at": now_iso}
 
         if "rom-cleanup" in pending_targets:
@@ -2091,7 +2628,7 @@ def cmd_customize_device(
 
         if "remove-apps-keep-data" in pending_targets:
             print("step: removing selected apps while preserving data")
-            keep_data_removal_report = _remove_apps_keep_data(adb, selected)
+            keep_data_removal_report = _remove_apps_keep_data(adb, selected, profile=profile)
             for line in keep_data_removal_report:
                 print(f"info: keep-data removal: {line}")
             target_state["remove-apps-keep-data"] = {"last_applied_at": now_iso}
