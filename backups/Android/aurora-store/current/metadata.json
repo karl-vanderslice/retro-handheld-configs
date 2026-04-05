@@ -3,7 +3,7 @@
   "serial": "MC94516AYF111102015",
   "backup_dir": "current",
   "encrypted_with": "age-identity",
-  "bitwarden_item": "",
-  "identity_file": ".rhc-secrets/age-identity.txt",
+  "bitwarden_item": "rhc-age-identity",
+  "identity_file": "",
   "file_count": 3
 }

@@ -20,21 +20,26 @@ Use `just customize-device` (or `rhc customize-device`) to apply these ADB steps
 
 1. Confirm SD reformat and partition removable card as public storage.
 2. Download/install latest Obtainium and allow install-other-apps permissions.
-3. Download latest single-device Obtainium Emulation Pack JSON, copy it to `/sdcard/Download`, and automate Obtainium import.
-	- Required apps are then installed from the imported Obtainium definitions: `RetroArch AArch64`, `Argosy`, and `GameNative`.
-	- The workflow resolves app sources from the Obtainium JSON and sideloads latest APKs directly.
-4. Remove preloaded ROM files from `/storage/emulated/0/ROMs` while preserving `systeminfo.txt`.
-5. Push `managed/<profile>/media/audio` to `/storage/emulated/0/media/audio`.
-6. Configure sounds:
+	- Pre-Obtainium sideloads: `Pixel Guide Android` is installed from its GitHub releases source.
+3. Apply managed Obtainium settings from `managed/<profile>/obtainium/settings-only.json.age` (or `settings-only.json` when unencrypted): `github-creds`, `gitlab-creds`, and `useFGService`.
+	- Token precedence: `RHC_OBTAINIUM_GITHUB_TOKEN` / `RHC_OBTAINIUM_GITLAB_TOKEN`, then Bitwarden items `RHC_BW_OBTAINIUM_GITHUB_ITEM` / `RHC_BW_OBTAINIUM_GITLAB_ITEM` (requires unlocked `BW_SESSION`), then file values.
+4. Download latest single-device Obtainium Emulation Pack JSON, copy it to `/sdcard/Download`, and automate Obtainium import.
+	- Bootstrap `Aurora Store` from Obtainium first.
+5. Install required apps from Aurora Store (`Firefox`, `CX File Explorer`, `Daijishō`, and profile-specific apps such as `YabaSanshiro 2 Pro`).
+6. Install remaining required Obtainium apps (`RetroArch AArch64`, `Argosy`, and `GameNative`) through Obtainium automation.
+	- Obtanium foreground service is disabled (`flutter.useFGService=false`) to hide the persistent foreground notification.
+7. Remove preloaded ROM files from `/storage/emulated/0/ROMs` while preserving `systeminfo.txt`.
+8. Push `managed/<profile>/media/audio` to `/storage/emulated/0/media/audio`.
+9. Configure sounds:
 	- `go_straight` → alarm
 	- `lightning_shield` → charging
 	- `sonic_ring` → notification
 	- `star_light_zone` → ringtone
-	- lower ring/notification/alarm volumes to a handheld-friendly level
-7. Set timezone to `America/New_York`.
-8. Disable the lock screen.
-9. Disable/uninstall Browser, Calendar, Camera, Clock, Files app, Gallery, MIX Explorer, Music, and Sim Toolkit.
-10. Record completion timestamp in `.rhc-state/`.
+	- set system/ring/notification/alarm to a handheld-default level (about 30% with minimum level 2 fallback)
+10. Set timezone to `America/New_York`.
+11. Disable the lock screen.
+12. Disable/uninstall Browser, Calendar, Camera, Clock, Files app, Gallery, MIX Explorer, Music, and Sim Toolkit.
+13. Record completion timestamp in `.rhc-state/`.
 
 Targeted runs are supported with `--target` (repeatable), for example:
 

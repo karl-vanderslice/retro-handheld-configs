@@ -138,6 +138,15 @@ APK_PERMISSION_PACKAGE_CANDIDATES = {
     "Aurora Store": ["com.aurora.store"],
 }
 
+PRE_OBTAINIUM_REQUIRED_APPS = [
+    {
+        "name": "Pixel Guide Android",
+        "url": "https://github.com/rexmont/Pixel-Guide-Android",
+        "overrideSource": "github",
+        "package_candidates": [],
+    },
+]
+
 AURORA_REQUIRED_APPS = [
     {
         "name": "Firefox",
@@ -148,6 +157,11 @@ AURORA_REQUIRED_APPS = [
         "name": "Daijishō",
         "url": "https://play.google.com/store/apps/details?id=com.magneticchen.daijishou",
         "packages": ["com.magneticchen.daijishou", "com.magneticchen.daijisho"],
+    },
+    {
+        "name": "CX File Explorer",
+        "url": "https://play.google.com/store/apps/details?id=com.cxinventor.file.explorer",
+        "packages": ["com.cxinventor.file.explorer"],
     },
 ]
 
@@ -163,18 +177,108 @@ OBTAINIUM_REQUIRED_APPS = [
     {
         "name": "RetroArch AArch64",
         "source_name": "RetroArch (AArch64)",
+        "source_name_candidates": ["RetroArch AArch64", "RetroArch"],
         "package_candidates": ["com.retroarch.aarch64", "com.retroarch"],
     },
     {
         "name": "Argosy",
         "source_name": "Argosy",
-        "package_candidates": [],
+        "package_candidates": ["com.nendo.argosy"],
+        "preferred_build_regex": r"(?i)(argosy.*standard|standard.*argosy|\bstandard\b)",
     },
     {
         "name": "GameNative",
         "source_name": "GameNative",
-        "package_candidates": [],
+        "package_candidates": ["app.gamenative"],
     },
+]
+
+OBTAINIUM_FRONTEND_BOOTSTRAP_APPS = [
+    {
+        "name": "Aurora Store",
+        "aliases": ["Aurora Store"],
+        "package_candidates": ["com.aurora.store"],
+        "preferred_build_regex": r"(?i)(aurora|store|universal|apk)",
+    },
+]
+
+OBTAINIUM_FRONTEND_REQUIRED_APPS = [
+    {
+        "name": "RetroArch AArch64",
+        "aliases": ["RetroArch AArch64", "RetroArch (AArch64)", "RetroArch"],
+        "package_candidates": ["com.retroarch.aarch64", "com.retroarch"],
+        "preferred_build_regex": r"(?i)(aarch64|arm64)",
+        "strict_build_match": True,
+    },
+    {
+        "name": "Argosy",
+        "aliases": ["Argosy", "Argosy Launcher"],
+        "package_candidates": ["com.nendo.argosy"],
+        "preferred_build_regex": r"(?i)(argosy.*standard|standard.*argosy|\bstandard\b)",
+        "strict_build_match": True,
+    },
+    {
+        "name": "GameNative",
+        "aliases": ["GameNative"],
+        "package_candidates": ["app.gamenative"],
+        "preferred_build_regex": r"(?i)(gamenative|arm64|aarch64|universal|apk)",
+    },
+]
+
+OBTAINIUM_APP_OVERRIDES = [
+    {
+        "id": "com.aurora.store",
+        "url": "https://auroraoss.com/api/files",
+        "author": "auroraoss.com",
+        "name": "Aurora Store",
+        "preferredApkIndex": 0,
+        "additionalSettings": json.dumps(
+            {
+                "intermediateLink": [],
+                "customLinkFilterRegex": (
+                    r"/downloads/AuroraStore/Release/AuroraStore-\\d\\.\\d\\.\\d\\.apk"
+                ),
+                "filterByLinkText": False,
+                "skipSort": False,
+                "reverseSort": False,
+                "sortByLastLinkSegment": False,
+                "versionExtractWholePage": False,
+                "requestHeader": [
+                    {
+                        "requestHeader": (
+                            "User-Agent: Mozilla/5.0 (Linux; Android 10; K) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/114.0.0.0 Mobile Safari/537.36"
+                        )
+                    }
+                ],
+                "defaultPseudoVersioningMethod": "partialAPKHash",
+                "trackOnly": False,
+                "versionExtractionRegEx": r"\\d\\.\\d\\.\\d",
+                "matchGroupToUse": "",
+                "versionDetection": True,
+                "useVersionCodeAsOSVersion": False,
+                "apkFilterRegEx": "",
+                "invertAPKFilter": False,
+                "autoApkFilterByArch": True,
+                "appName": "Aurora Store",
+                "appAuthor": "auroraoss.com",
+                "shizukuPretendToBeGooglePlay": False,
+                "allowInsecure": False,
+                "exemptFromBackgroundUpdates": False,
+                "skipUpdateNotifications": False,
+                "about": (
+                    "Aurora Store is an unofficial FOSS client for Google Play with "
+                    "bare minimum features. Aurora Store allows users to download, "
+                    "update, and search for apps like the Play Store. It works "
+                    "perfectly fine with or without Google Play Services or microG."
+                ),
+                "refreshBeforeDownload": False,
+            },
+            separators=(",", ":"),
+        ),
+        "overrideSource": None,
+    }
 ]
 
 SYSTEM_SOUND_MAP = {
@@ -185,23 +289,37 @@ SYSTEM_SOUND_MAP = {
 
 CHARGING_SOUND_RELATIVE_PATH = "notifications/lightning_shield.mp3"
 SYSTEM_VOLUME_PROFILE = {
+    "system": {
+        "stream_id": 1,
+        "stream_name": "system",
+        "fallback_setting": "volume_system",
+        "ratio": 0.3,
+        "minimum_volume": 2,
+        "fallback_value": 2,
+    },
     "ring": {
         "stream_id": 2,
         "stream_name": "ring",
         "fallback_setting": "volume_ring",
-        "ratio": 0.35,
+        "ratio": 0.3,
+        "minimum_volume": 2,
+        "fallback_value": 2,
     },
     "notification": {
         "stream_id": 5,
         "stream_name": "notification",
         "fallback_setting": "volume_notification",
-        "ratio": 0.35,
+        "ratio": 0.3,
+        "minimum_volume": 2,
+        "fallback_value": 2,
     },
     "alarm": {
         "stream_id": 4,
         "stream_name": "alarm",
         "fallback_setting": "volume_alarm",
-        "ratio": 0.35,
+        "ratio": 0.3,
+        "minimum_volume": 2,
+        "fallback_value": 2,
     },
 }
 DEFAULT_PROFILE = "retroid-pocket-classic-6-button-gammaos-next"
@@ -214,8 +332,8 @@ CUSTOMIZE_TARGETS_ORDER = [
     "format-sd",
     "apks",
     "aurora-restore",
-    "aurora-install-apps",
     "obtainium-import",
+    "aurora-install-apps",
     "rom-cleanup",
     "audio-sync",
     "system-sounds",
@@ -633,11 +751,53 @@ def _download_obtainium_emulation_pack(force: bool, destination_dir: Path) -> Pa
     destination = destination_dir / OBTAINIUM_EMULATION_PACK_LOCAL_FILENAME
 
     if force or not destination.exists():
-        pack_url, asset_name = _resolve_obtainium_emulation_pack_download()
-        _download_file(pack_url, destination)
-        print(f"Downloaded Obtainium Emulation Pack ({asset_name}) -> {destination}")
+        try:
+            pack_url, asset_name = _resolve_obtainium_emulation_pack_download()
+            _download_file(pack_url, destination)
+            print(f"Downloaded Obtainium Emulation Pack ({asset_name}) -> {destination}")
+        except urllib.error.URLError as exc:
+            if destination.exists() and destination.stat().st_size > 0:
+                print(
+                    "warning: failed to refresh Obtainium Emulation Pack; "
+                    f"using cached file at {destination} ({exc})"
+                )
+            else:
+                raise
 
     return destination
+
+
+def _merge_obtainium_app_overrides(pack_path: Path, app_overrides: list[dict[str, Any]]) -> None:
+    payload = json.loads(pack_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"invalid Obtainium pack format: {pack_path}")
+
+    raw_apps = payload.get("apps")
+    apps: list[dict[str, Any]] = []
+    if isinstance(raw_apps, list):
+        for app in raw_apps:
+            if isinstance(app, dict):
+                apps.append(app)
+
+    by_id: dict[str, int] = {}
+    for index, app in enumerate(apps):
+        app_id = app.get("id")
+        if isinstance(app_id, str) and app_id:
+            by_id[app_id] = index
+
+    for override in app_overrides:
+        app_id = override.get("id")
+        if not isinstance(app_id, str) or not app_id:
+            continue
+        existing_index = by_id.get(app_id)
+        if existing_index is None:
+            apps.append(override)
+            by_id[app_id] = len(apps) - 1
+        else:
+            apps[existing_index] = override
+
+    payload["apps"] = apps
+    pack_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def _copy_directory_tree(source_root: Path, destination_root: Path, overwrite: bool) -> int:
@@ -1172,6 +1332,423 @@ def _list_installed_packages(adb: str, serial: str) -> set[str]:
     return installed
 
 
+def _configure_obtainium_foreground_service(adb: str, serial: str, *, enabled: bool) -> str:
+    installed = _list_installed_packages(adb, serial)
+    obtainium_pkg = next(
+        (pkg for pkg in APK_PERMISSION_PACKAGE_CANDIDATES["Obtainium"] if pkg in installed),
+        None,
+    )
+    if obtainium_pkg is None:
+        return "Obtainium: package not installed"
+
+    prefs_path = f"/data/user/0/{obtainium_pkg}/shared_prefs/FlutterSharedPreferences.xml"
+    xml_value = "true" if enabled else "false"
+    script = (
+        f"FILE={shlex.quote(prefs_path)}; "
+        'if [ ! -f "$FILE" ]; then exit 2; fi; '
+        f'sed -i \'s|<boolean name="flutter.useFGService" value="[^"]*" />|'
+        f'<boolean name="flutter.useFGService" value="{xml_value}" />|g\' "$FILE"; '
+        f'grep -q \'<boolean name="flutter.useFGService" value="{xml_value}" />\' "$FILE"'
+    )
+    update_result = _adb_shell(
+        adb,
+        serial,
+        f"su -c {shlex.quote(script)}",
+        check=False,
+        timeout=30,
+    )
+    if update_result.returncode != 0:
+        raise RuntimeError("failed to set Obtanium foreground service preference")
+
+    _adb_shell(
+        adb,
+        serial,
+        f"am force-stop {shlex.quote(obtainium_pkg)}",
+        check=False,
+        timeout=20,
+    )
+    return f"Obtainium foreground service {'enabled' if enabled else 'disabled'} ({obtainium_pkg})"
+
+
+def _managed_obtainium_settings_path(profile: str) -> Path:
+    return Path("managed") / profile / "obtainium" / "settings-only.json"
+
+
+def _managed_obtainium_settings_encrypted_path(profile: str) -> Path:
+    return Path("managed") / profile / "obtainium" / "settings-only.json.age"
+
+
+def _resolve_runtime_age_identity_file(tmp_dir: Path) -> Path:
+    identity_file_env = os.environ.get("RHC_AGE_IDENTITY_FILE", "").strip()
+    if identity_file_env:
+        candidate = Path(identity_file_env).expanduser()
+        if candidate.is_file():
+            return candidate
+        raise RuntimeError(f"age identity file not found: {candidate}")
+
+    bw_item = os.environ.get("RHC_BW_AGE_ITEM", "").strip()
+    if not bw_item:
+        raise RuntimeError("encrypted settings require RHC_AGE_IDENTITY_FILE or RHC_BW_AGE_ITEM")
+
+    if not shutil.which("bw"):
+        raise RuntimeError("bw (Bitwarden CLI) is required for encrypted settings")
+
+    bw_session = os.environ.get("BW_SESSION", "").strip()
+    if not bw_session:
+        raise RuntimeError("BW_SESSION is required for Bitwarden-backed encrypted settings")
+
+    status = subprocess.run(
+        ["bw", "status", "--session", bw_session],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=15,
+    )
+    if '"status":"unlocked"' not in status.stdout:
+        raise RuntimeError("Bitwarden vault is not unlocked for this shell session")
+
+    result = subprocess.run(
+        ["bw", "get", "notes", bw_item, "--session", bw_session],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=20,
+    )
+    identity = result.stdout.strip()
+    if result.returncode != 0 or not identity.startswith("AGE-SECRET-KEY-"):
+        raise RuntimeError(f"failed to read age identity from Bitwarden item: {bw_item}")
+
+    identity_file = tmp_dir / "age-identity.txt"
+    identity_file.write_text(identity + "\n", encoding="utf-8")
+    return identity_file
+
+
+def _load_managed_obtainium_settings(profile: str) -> dict[str, Any]:
+    plain_path = _managed_obtainium_settings_path(profile)
+    encrypted_path = _managed_obtainium_settings_encrypted_path(profile)
+
+    if plain_path.exists():
+        payload = json.loads(plain_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"invalid Obtainium settings payload: {plain_path}")
+        return payload
+
+    if encrypted_path.exists():
+        with tempfile.TemporaryDirectory(prefix="rhc-obtainium-settings-") as tmp:
+            tmp_dir = Path(tmp)
+            identity_file = _resolve_runtime_age_identity_file(tmp_dir)
+            decrypted_path = tmp_dir / "settings-only.json"
+
+            decrypt = subprocess.run(
+                [
+                    "age",
+                    "-d",
+                    "-i",
+                    str(identity_file),
+                    "-o",
+                    str(decrypted_path),
+                    str(encrypted_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            if decrypt.returncode != 0:
+                raise RuntimeError(f"failed to decrypt Obtainium settings file: {encrypted_path}")
+
+            payload = json.loads(decrypted_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise RuntimeError(f"invalid Obtainium settings payload: {encrypted_path}")
+            return payload
+
+    raise RuntimeError(
+        f"managed Obtainium settings file not found ({plain_path} or {encrypted_path})"
+    )
+
+
+def _resolve_obtainium_tokens_from_bitwarden() -> dict[str, str]:
+    github_item_env = os.environ.get("RHC_BW_OBTAINIUM_GITHUB_ITEM", "").strip()
+    gitlab_item_env = os.environ.get("RHC_BW_OBTAINIUM_GITLAB_ITEM", "").strip()
+
+    requested_items: dict[str, list[str]] = {
+        "github-creds": (
+            [github_item_env]
+            if github_item_env
+            else ["obtainium-github-token", "obtainium-github-pat"]
+        ),
+        "gitlab-creds": ([gitlab_item_env] if gitlab_item_env else ["obtainium-gitlab-token"]),
+    }
+    explicit_item_override = {
+        "github-creds": bool(github_item_env),
+        "gitlab-creds": bool(gitlab_item_env),
+    }
+
+    if not any(requested_items.values()):
+        return {}
+
+    bw_session = os.environ.get("BW_SESSION", "").strip()
+    if not bw_session:
+        if any(explicit_item_override.values()):
+            raise RuntimeError("BW_SESSION is required to resolve Obtainium tokens from Bitwarden")
+        return {}
+
+    if not shutil.which("bw"):
+        raise RuntimeError("bw (Bitwarden CLI) is required to resolve Obtainium tokens")
+
+    status = subprocess.run(
+        ["bw", "status", "--session", bw_session],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=15,
+    )
+    if '"status":"unlocked"' not in status.stdout:
+        raise RuntimeError("Bitwarden vault is not unlocked for this shell session")
+
+    def _read_token_from_item(item_ref: str) -> str:
+        token = ""
+
+        notes_result = subprocess.run(
+            ["bw", "get", "notes", item_ref, "--session", bw_session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=20,
+        )
+        if notes_result.returncode == 0 and notes_result.stdout.strip():
+            token = notes_result.stdout.strip()
+
+        if not token:
+            password_result = subprocess.run(
+                ["bw", "get", "password", item_ref, "--session", bw_session],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=20,
+            )
+            if password_result.returncode == 0 and password_result.stdout.strip():
+                token = password_result.stdout.strip()
+
+        if not token:
+            item_result = subprocess.run(
+                ["bw", "get", "item", item_ref, "--session", bw_session],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=20,
+            )
+            if item_result.returncode == 0 and item_result.stdout.strip():
+                try:
+                    item_payload = json.loads(item_result.stdout)
+                except json.JSONDecodeError:
+                    item_payload = {}
+
+                login = item_payload.get("login") if isinstance(item_payload, dict) else None
+                if isinstance(login, dict):
+                    password = login.get("password")
+                    if isinstance(password, str) and password.strip():
+                        token = password.strip()
+
+                if not token:
+                    fields = item_payload.get("fields") if isinstance(item_payload, dict) else None
+                    if isinstance(fields, list):
+                        for field in fields:
+                            if not isinstance(field, dict):
+                                continue
+                            value = field.get("value")
+                            if isinstance(value, str) and value.strip():
+                                token = value.strip()
+                                break
+
+        return token
+
+    resolved_tokens: dict[str, str] = {}
+    for settings_key, item_candidates in requested_items.items():
+        token = ""
+        for item_ref in item_candidates:
+            token = _read_token_from_item(item_ref)
+            if token:
+                break
+
+        if token:
+            resolved_tokens[settings_key] = token
+            continue
+
+        if explicit_item_override.get(settings_key, False):
+            raise RuntimeError(
+                f"failed to read Obtainium token from Bitwarden item: {item_candidates[0]}"
+            )
+
+    return resolved_tokens
+
+
+def _apply_managed_obtainium_settings(adb: str, serial: str, profile: str) -> str:
+    payload = _load_managed_obtainium_settings(profile)
+    raw_settings = payload.get("settings")
+    if not isinstance(raw_settings, dict):
+        return "Obtainium settings: invalid settings payload"
+
+    managed_keys = ("github-creds", "gitlab-creds", "useFGService")
+    desired_settings = {key: raw_settings[key] for key in managed_keys if key in raw_settings}
+
+    direct_github = os.environ.get("RHC_OBTAINIUM_GITHUB_TOKEN", "").strip()
+    direct_gitlab = os.environ.get("RHC_OBTAINIUM_GITLAB_TOKEN", "").strip()
+    if direct_github:
+        desired_settings["github-creds"] = direct_github
+    if direct_gitlab:
+        desired_settings["gitlab-creds"] = direct_gitlab
+
+    desired_settings.update(_resolve_obtainium_tokens_from_bitwarden())
+
+    if not desired_settings:
+        return "Obtainium settings: no managed token/foreground keys found"
+
+    installed = _list_installed_packages(adb, serial)
+    obtainium_pkg = next(
+        (pkg for pkg in APK_PERMISSION_PACKAGE_CANDIDATES["Obtainium"] if pkg in installed),
+        None,
+    )
+    if obtainium_pkg is None:
+        return "Obtainium settings: package not installed"
+
+    prefs_path = f"/data/user/0/{obtainium_pkg}/shared_prefs/FlutterSharedPreferences.xml"
+    existing = _adb_shell(
+        adb,
+        serial,
+        f"su -c {shlex.quote(f'cat {shlex.quote(prefs_path)}')}",
+        check=False,
+        timeout=30,
+    )
+    if existing.returncode != 0 or not existing.stdout.strip():
+        launch_component_result = _adb_shell(
+            adb,
+            serial,
+            f"cmd package resolve-activity --brief {shlex.quote(obtainium_pkg)}",
+            check=False,
+            timeout=20,
+        )
+        launch_component = ""
+        for line in launch_component_result.stdout.splitlines():
+            if "/" in line and not line.startswith("priority="):
+                launch_component = line.strip()
+                break
+
+        if launch_component:
+            _adb_shell(
+                adb,
+                serial,
+                f"am start -S -W -n {shlex.quote(launch_component)}",
+                check=False,
+                timeout=25,
+            )
+        else:
+            _adb_shell(
+                adb,
+                serial,
+                f"monkey -p {shlex.quote(obtainium_pkg)} -c android.intent.category.LAUNCHER 1",
+                check=False,
+                timeout=20,
+            )
+
+        time.sleep(2.0)
+        _adb_shell(
+            adb, serial, f"am force-stop {shlex.quote(obtainium_pkg)}", check=False, timeout=20
+        )
+        time.sleep(1.0)
+
+        existing = _adb_shell(
+            adb,
+            serial,
+            f"su -c {shlex.quote(f'cat {shlex.quote(prefs_path)}')}",
+            check=False,
+            timeout=30,
+        )
+        if existing.returncode != 0 or not existing.stdout.strip():
+            raise RuntimeError("failed to read Obtanium Flutter shared preferences")
+
+    root = ET.fromstring(existing.stdout)
+
+    def _upsert_flutter_preference(key: str, value: Any) -> None:
+        name = f"flutter.{key}"
+        node = next((child for child in root if child.attrib.get("name") == name), None)
+
+        if isinstance(value, bool):
+            tag = "boolean"
+            attr_value = "true" if value else "false"
+            text_value: str | None = None
+        elif isinstance(value, int):
+            tag = "long"
+            attr_value = str(value)
+            text_value = None
+        elif isinstance(value, float):
+            tag = "float"
+            attr_value = str(value)
+            text_value = None
+        else:
+            tag = "string"
+            attr_value = None
+            text_value = str(value)
+
+        if node is None:
+            node = ET.SubElement(root, tag, {"name": name})
+        else:
+            node.tag = tag
+            node.attrib = {"name": name}
+
+        if attr_value is not None:
+            node.attrib["value"] = attr_value
+            node.text = None
+        else:
+            node.text = text_value
+
+    for key, value in desired_settings.items():
+        _upsert_flutter_preference(key, value)
+
+    with tempfile.NamedTemporaryFile(
+        prefix="rhc-obtainium-prefs-", suffix=".xml", delete=False
+    ) as tmp:
+        tmp_local = Path(tmp.name)
+        tree = ET.ElementTree(root)
+        tree.write(tmp_local, encoding="utf-8", xml_declaration=True)
+
+    tmp_remote = f"/data/local/tmp/{tmp_local.name}"
+    try:
+        subprocess.run(
+            [adb, "-s", serial, "push", str(tmp_local), tmp_remote],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
+        apply_script = (
+            f"cat {shlex.quote(tmp_remote)} > {shlex.quote(prefs_path)}; "
+            f"rm -f {shlex.quote(tmp_remote)}"
+        )
+        apply_result = _adb_shell(
+            adb,
+            serial,
+            f"su -c {shlex.quote(apply_script)}",
+            check=False,
+            timeout=30,
+        )
+        if apply_result.returncode != 0:
+            raise RuntimeError("failed to apply managed Obtanium settings")
+    finally:
+        tmp_local.unlink(missing_ok=True)
+
+    _adb_shell(
+        adb,
+        serial,
+        f"am force-stop {shlex.quote(obtainium_pkg)}",
+        check=False,
+        timeout=20,
+    )
+    return "Obtainium settings applied from managed profile: " + ", ".join(
+        sorted(desired_settings.keys())
+    )
+
+
 def _disable_or_uninstall_apps(adb: str, serial: str) -> list[str]:
     installed = _list_installed_packages(adb, serial)
     report: list[str] = []
@@ -1279,6 +1856,7 @@ def _automate_obtainium_import(
     local_json_path: Path,
     *,
     cleanup_rpc: bool,
+    max_total_seconds: float = 60.0,
 ) -> None:
     try:
         import uiautomator2 as u2
@@ -1333,6 +1911,12 @@ def _automate_obtainium_import(
     )
 
     d = u2.connect(device_serial)
+    automation_deadline = time.monotonic() + max(15.0, max_total_seconds)
+
+    def _check_automation_deadline() -> None:
+        if time.monotonic() >= automation_deadline:
+            raise RuntimeError("Obtainium import automation timed out")
+
     try:
         d.healthcheck()
         d.service("uiautomator").start()
@@ -1376,7 +1960,7 @@ def _automate_obtainium_import(
         d.app_start(pkg_name, stop=True)
 
     def _first_visible(candidates: list[object], timeout: float) -> object | None:
-        deadline = time.monotonic() + timeout
+        deadline = min(time.monotonic() + timeout, automation_deadline)
         while time.monotonic() < deadline:
             for candidate in candidates:
                 try:
@@ -1393,24 +1977,7 @@ def _automate_obtainium_import(
 
     def _find_app_entry_with_scroll(selectors: list[object], passes: int = 25) -> object | None:
         for _ in range(passes):
-            entry = _first_visible(selectors, timeout=2.0)
-            if entry is not None:
-                return entry
-            try:
-                d(scrollable=True).scroll.vert.forward(steps=60)
-            except Exception:
-                _adb_shell(
-                    adb,
-                    device_serial,
-                    "input swipe 520 1500 520 520 180",
-                    check=False,
-                    timeout=10,
-                )
-            time.sleep(0.4)
-        return None
-
-    def _find_app_entry_with_scroll(selectors: list[object], passes: int = 10) -> object | None:
-        for _ in range(passes):
+            _check_automation_deadline()
             entry = _first_visible(selectors, timeout=2.0)
             if entry is not None:
                 return entry
@@ -1434,8 +2001,87 @@ def _automate_obtainium_import(
         selector.click()
         return True
 
+    def _apply_app_name_filter(filter_term: str) -> bool:
+        opened = _tap_if_visible(
+            [
+                d(descriptionContains="Filter apps"),
+                d(description="Filter apps"),
+            ],
+            timeout=2.0,
+        )
+        if not opened:
+            return False
+
+        field = _first_visible(
+            [
+                d(className="android.widget.EditText", instance=0),
+                d(className="android.widget.EditText"),
+            ],
+            timeout=3.0,
+        )
+        if field is None:
+            return False
+
+        try:
+            field.click()
+            try:
+                field.clear_text()
+            except Exception:
+                pass
+            field.set_text(filter_term)
+        except Exception:
+            return False
+
+        submitted = _tap_if_visible(
+            [
+                d(descriptionContains="Continue"),
+                d(description="Continue"),
+                d(textMatches=r"(?i)^continue$"),
+                d(textMatches=r"(?i)^apply$"),
+                d(descriptionMatches=r"(?i)^continue$"),
+                d(descriptionMatches=r"(?i)^apply$"),
+            ],
+            timeout=2.0,
+        )
+        if submitted:
+            return True
+
+        _adb_shell(
+            adb,
+            device_serial,
+            "input keyevent KEYCODE_ENTER",
+            check=False,
+            timeout=10,
+        )
+        return _tap_if_visible(
+            [
+                d(descriptionContains="Continue"),
+                d(description="Continue"),
+                d(textMatches=r"(?i)^continue$"),
+                d(textMatches=r"(?i)^apply$"),
+            ],
+            timeout=1.2,
+        )
+
+    def _open_category_menu() -> None:
+        _tap_if_visible(
+            [
+                d(descriptionContains="Categories"),
+                d(descriptionContains="Category"),
+                d(descriptionContains="Expand"),
+                d(descriptionContains="Collapse"),
+                d(descriptionContains="Show categories"),
+                d(descriptionContains="Hide categories"),
+                d(descriptionMatches=r"(?i).*down.*"),
+                d(descriptionMatches=r"(?i).*arrow.*down.*"),
+                d(className="android.widget.ImageButton"),
+            ],
+            timeout=1.5,
+        )
+
     def _dismiss_first_run_popups() -> None:
         for _ in range(5):
+            _check_automation_deadline()
             clicked = _tap_if_visible(
                 [
                     d(resourceId="com.android.permissioncontroller:id/permission_allow_button"),
@@ -1565,6 +2211,7 @@ def _automate_obtainium_import(
         return _wait_for_obtainium_foreground(timeout=12.0)
 
     if not _wait_for_obtainium_foreground(timeout=12.0):
+        _check_automation_deadline()
         if launch_component:
             _adb_shell(
                 adb,
@@ -1588,26 +2235,13 @@ def _automate_obtainium_import(
 
     _dismiss_first_run_popups()
 
-    no_apps_initial = _first_visible(
+    _first_visible(
         [
             d(textMatches=r"(?i)^no apps$"),
             d(descriptionMatches=r"(?i)^no apps$"),
         ],
         timeout=2.0,
     )
-    if no_apps_initial is None and not _documentsui_foreground():
-        already_populated = _first_visible(
-            [d(textContains=hint) for hint in OBTAINIUM_APPS_POPULATED_HINTS]
-            + [d(descriptionContains=hint) for hint in OBTAINIUM_APPS_POPULATED_HINTS],
-            timeout=2.0,
-        )
-        if already_populated is not None:
-            if cleanup_rpc:
-                try:
-                    d.service("uiautomator").stop()
-                except Exception:
-                    pass
-            return
 
     import_export_selector = _first_visible(
         [
@@ -1622,6 +2256,7 @@ def _automate_obtainium_import(
         timeout=20.0,
     )
     if import_export_selector is None:
+        _check_automation_deadline()
         _adb_shell(adb, device_serial, "input tap 775 940", check=False, timeout=10)
         time.sleep(1.0)
         import_export_selector = _first_visible(
@@ -1694,6 +2329,7 @@ def _automate_obtainium_import(
 
     file_selected = False
     for _ in range(10):
+        _check_automation_deadline()
         result_selector = _first_visible(
             [
                 d(resourceId="android:id/title", text=file_name),
@@ -1848,6 +2484,457 @@ def _automate_obtainium_import(
             d.service("uiautomator").stop()
         except Exception:
             pass
+
+
+def _automate_obtainium_frontend_installs(
+    adb: str,
+    serial: str,
+    app_specs: list[dict[str, Any]],
+    per_app_timeout_seconds: float = 25.0,
+) -> list[str]:
+    try:
+        import uiautomator2 as u2
+    except Exception as exc:  # pragma: no cover
+        raise RuntimeError(
+            "uiautomator2 is required for Obtainium frontend automation. "
+            "Use the Nix dev shell with uiautomator2 available."
+        ) from exc
+
+    installed = _list_installed_packages(adb, serial)
+    pkg_name = next(
+        (pkg for pkg in APK_PERMISSION_PACKAGE_CANDIDATES["Obtainium"] if pkg in installed),
+        None,
+    )
+    if pkg_name is None:
+        raise RuntimeError("Obtainium package is not installed on device")
+
+    d = u2.connect(serial)
+    report: list[str] = []
+
+    def _current_focus_package() -> str:
+        result = _adb_shell(
+            adb,
+            serial,
+            "dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 1",
+            check=False,
+            timeout=15,
+        )
+        line = result.stdout.strip()
+        match = re.search(r"\s([A-Za-z0-9_.]+)/[A-Za-z0-9_.$]+", line)
+        if match is None:
+            return ""
+        return match.group(1)
+
+    def _ensure_obtainium_foreground(timeout_seconds: float = 20.0) -> bool:
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            _adb_shell(adb, serial, "wm dismiss-keyguard", check=False, timeout=10)
+            _adb_shell(adb, serial, "input keyevent KEYCODE_WAKEUP", check=False, timeout=10)
+            _adb_shell(adb, serial, "input keyevent KEYCODE_HOME", check=False, timeout=10)
+            if launch_component:
+                _adb_shell(
+                    adb,
+                    serial,
+                    f"am start -S -W -n {shlex.quote(launch_component)}",
+                    check=False,
+                    timeout=25,
+                )
+            else:
+                _adb_shell(
+                    adb,
+                    serial,
+                    f"monkey -p {shlex.quote(pkg_name)} -c android.intent.category.LAUNCHER 1",
+                    check=False,
+                    timeout=20,
+                )
+
+            focused = _current_focus_package()
+            if focused == pkg_name:
+                return True
+            time.sleep(0.8)
+        return False
+
+    def _first_visible(candidates: list[object], timeout: float) -> object | None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            for candidate in candidates:
+                try:
+                    if candidate.exists:
+                        return candidate
+                except Exception:
+                    continue
+            time.sleep(0.3)
+        return None
+
+    def _tap_if_visible(candidates: list[object], timeout: float = 2.0) -> bool:
+        selector = _first_visible(candidates, timeout)
+        if selector is None:
+            return False
+        selector.click()
+        return True
+
+    def _apply_app_name_filter(filter_term: str) -> bool:
+        opened = _tap_if_visible(
+            [
+                d(descriptionContains="Filter apps"),
+                d(description="Filter apps"),
+            ],
+            timeout=2.0,
+        )
+        if not opened:
+            return False
+
+        field = _first_visible(
+            [
+                d(className="android.widget.EditText", instance=0),
+                d(className="android.widget.EditText"),
+            ],
+            timeout=3.0,
+        )
+        if field is None:
+            return False
+
+        try:
+            field.click()
+            try:
+                field.clear_text()
+            except Exception:
+                pass
+            field.set_text(filter_term)
+        except Exception:
+            return False
+
+        submitted = _tap_if_visible(
+            [
+                d(descriptionContains="Continue"),
+                d(description="Continue"),
+                d(textMatches=r"(?i)^continue$"),
+                d(textMatches=r"(?i)^apply$"),
+                d(descriptionMatches=r"(?i)^continue$"),
+                d(descriptionMatches=r"(?i)^apply$"),
+            ],
+            timeout=2.0,
+        )
+        if submitted:
+            return True
+
+        _adb_shell(adb, serial, "input keyevent KEYCODE_ENTER", check=False, timeout=10)
+        return _tap_if_visible(
+            [
+                d(descriptionContains="Continue"),
+                d(description="Continue"),
+                d(textMatches=r"(?i)^continue$"),
+                d(textMatches=r"(?i)^apply$"),
+            ],
+            timeout=1.2,
+        )
+
+    def _open_category_menu() -> None:
+        _tap_if_visible(
+            [
+                d(descriptionContains="Categories"),
+                d(descriptionContains="Category"),
+                d(descriptionContains="Expand"),
+                d(descriptionContains="Collapse"),
+                d(descriptionContains="Show categories"),
+                d(descriptionContains="Hide categories"),
+                d(descriptionMatches=r"(?i).*down.*"),
+                d(descriptionMatches=r"(?i).*arrow.*down.*"),
+                d(className="android.widget.ImageButton"),
+            ],
+            timeout=1.5,
+        )
+
+    launch_component_result = _adb_shell(
+        adb,
+        serial,
+        f"cmd package resolve-activity --brief {shlex.quote(pkg_name)}",
+        check=False,
+        timeout=20,
+    )
+    launch_component = ""
+    for line in launch_component_result.stdout.splitlines():
+        if "/" in line and not line.startswith("priority="):
+            launch_component = line.strip()
+            break
+
+    if not _ensure_obtainium_foreground(timeout_seconds=20.0):
+        raise RuntimeError("unable to bring Obtainium to foreground for frontend automation")
+
+    _tap_if_visible(
+        [
+            d(textMatches=r"(?i)^continue$"),
+            d(textMatches=r"(?i)^ok$"),
+            d(textMatches=r"(?i)^allow$"),
+            d(descriptionMatches=r"(?i)^close$"),
+        ],
+        timeout=2.0,
+    )
+
+    for app_spec in app_specs:
+        try:
+            app_name = str(app_spec.get("name", "")).strip() or "Obtainium app"
+            aliases = [
+                str(alias)
+                for alias in app_spec.get("aliases", [])
+                if isinstance(alias, str) and alias.strip()
+            ]
+            if app_name not in aliases:
+                aliases.insert(0, app_name)
+            package_candidates = [
+                str(pkg)
+                for pkg in app_spec.get("package_candidates", [])
+                if isinstance(pkg, str) and pkg.strip()
+            ]
+            preferred_build_regex = str(
+                app_spec.get("preferred_build_regex", r"(?i)(aarch64|arm64|universal|apk)")
+            )
+            strict_build_match = bool(app_spec.get("strict_build_match", False))
+
+            if not _ensure_obtainium_foreground(timeout_seconds=8.0):
+                report.append(f"{app_name}: Obtainium not foreground (skipping)")
+                continue
+            app_deadline = time.monotonic() + max(5.0, per_app_timeout_seconds)
+            normalized_name = re.sub(r"\s*\([^)]*\)", "", app_name).strip()
+            is_retroarch = normalized_name.lower().startswith("retroarch")
+            search_terms = aliases + [normalized_name]
+            category_label = "Emulator"
+            if normalized_name.lower().startswith("retroarch"):
+                search_terms.append("RetroArch")
+                search_terms.append("RetroArch AArch64")
+                search_terms.append("RetroArch (AArch64)")
+            if normalized_name.lower().startswith("argosy"):
+                search_terms.append("Argosy")
+                search_terms.append("Argosy Launcher")
+                category_label = "Frontend"
+
+            filter_term = aliases[0] if aliases else app_name
+            filter_applied = _apply_app_name_filter(filter_term)
+            if not filter_applied and filter_term:
+                report.append(
+                    f"{app_name}: filter submit not confirmed; continuing with fallback search"
+                )
+            time.sleep(0.4)
+
+            category_order = [
+                category_label,
+                "Track Only",
+                "Emulator",
+                "Frontend",
+                "Utilities",
+                "Streaming",
+            ]
+            seen_categories: set[str] = set()
+            app_entry = None
+            for category in category_order:
+                if category in seen_categories:
+                    continue
+                seen_categories.add(category)
+
+                _open_category_menu()
+                _tap_if_visible(
+                    [
+                        d(description=category),
+                        d(descriptionContains=category),
+                        d(text=category),
+                        d(textContains=category),
+                    ],
+                    timeout=1.2,
+                )
+                time.sleep(0.3)
+
+                _tap_if_visible(
+                    [
+                        d(descriptionContains="Apps\nTab 1 of 4"),
+                        d(descriptionContains="Apps"),
+                    ],
+                    timeout=1.0,
+                )
+
+                for _ in range(6):
+                    if time.monotonic() >= app_deadline:
+                        break
+                    _adb_shell(
+                        adb,
+                        serial,
+                        "input swipe 620 320 620 760 200",
+                        check=False,
+                        timeout=10,
+                    )
+
+                app_entry = _first_visible(
+                    [d(descriptionContains=term) for term in search_terms if term],
+                    timeout=1.5,
+                )
+                if app_entry is not None:
+                    break
+
+                for _ in range(8):
+                    if time.monotonic() >= app_deadline:
+                        break
+                    try:
+                        d(scrollable=True).scroll.vert.forward(steps=50)
+                    except Exception:
+                        _adb_shell(
+                            adb,
+                            serial,
+                            "input swipe 620 760 620 320 180",
+                            check=False,
+                            timeout=10,
+                        )
+                    app_entry = _first_visible(
+                        [d(descriptionContains=term) for term in search_terms if term],
+                        timeout=0.8,
+                    )
+                    if app_entry is not None:
+                        break
+                if app_entry is not None:
+                    break
+
+            if app_entry is None:
+                timeout_seconds = int(per_app_timeout_seconds)
+                report.append(
+                    f"{app_name}: entry not found in Obtainium UI within {timeout_seconds}s"
+                )
+                _apply_app_name_filter("")
+                _adb_shell(adb, serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+                continue
+
+            app_entry.click()
+            time.sleep(1.0)
+
+            acted = _tap_if_visible(
+                [
+                    d(descriptionMatches=r"(?i)^install$"),
+                    d(descriptionMatches=r"(?i)^update$"),
+                    d(descriptionMatches=r"(?i)^reinstall$"),
+                    d(descriptionContains="Install"),
+                    d(descriptionContains="Update"),
+                ],
+                timeout=4.0,
+            )
+            if not acted:
+                acted = _tap_if_visible(
+                    [
+                        d(descriptionContains="Check for updates"),
+                        d(descriptionContains="Additional options"),
+                    ],
+                    timeout=2.0,
+                )
+                if acted:
+                    acted = _tap_if_visible(
+                        [
+                            d(descriptionMatches=r"(?i)^install$"),
+                            d(descriptionMatches=r"(?i)^update$"),
+                            d(descriptionContains="Install"),
+                            d(descriptionContains="Update"),
+                        ],
+                        timeout=2.0,
+                    )
+
+            build_selector = _first_visible(
+                [
+                    d(resourceId="android:id/text1", textMatches=preferred_build_regex),
+                    d(textMatches=preferred_build_regex),
+                    d(descriptionMatches=preferred_build_regex),
+                ],
+                timeout=4.0,
+            )
+            build_list_visible = _first_visible(
+                [
+                    d(resourceId="android:id/text1"),
+                ],
+                timeout=1.0,
+            )
+            if build_selector is None and not strict_build_match:
+                build_selector = _first_visible(
+                    [
+                        d(resourceId="android:id/text1"),
+                    ],
+                    timeout=1.5,
+                )
+            if build_selector is None and strict_build_match and build_list_visible is not None:
+                report.append(
+                    f"{app_name}: no matching build found for regex {preferred_build_regex}"
+                )
+                _apply_app_name_filter("")
+                _adb_shell(adb, serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+                time.sleep(0.8)
+                _adb_shell(adb, serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+                time.sleep(0.8)
+                continue
+            if build_selector is not None:
+                build_selector.click()
+                time.sleep(0.7)
+
+            _tap_if_visible(
+                [
+                    d(descriptionMatches=r"(?i)^install$"),
+                    d(textMatches=r"(?i)^install$"),
+                    d(textMatches=r"(?i)^ok$"),
+                    d(textMatches=r"(?i)^continue$"),
+                ],
+                timeout=2.0,
+            )
+
+            _tap_if_visible(
+                [
+                    d(textMatches=r"(?i)^install$"),
+                    d(textMatches=r"(?i)^ok$"),
+                    d(textMatches=r"(?i)^allow$"),
+                    d(textMatches=r"(?i)^continue$"),
+                ],
+                timeout=2.0,
+            )
+
+            if is_retroarch:
+                update_clicked = _tap_if_visible(
+                    [
+                        d(textMatches=r"(?i)^update$"),
+                        d(descriptionMatches=r"(?i)^update$"),
+                        d(resourceId="android:id/button1", textMatches=r"(?i)^update$"),
+                        d(resourceId="android:id/button1"),
+                    ],
+                    timeout=70.0,
+                )
+                if update_clicked:
+                    _tap_if_visible(
+                        [
+                            d(textMatches=r"(?i)^install$"),
+                            d(textMatches=r"(?i)^continue$"),
+                            d(textMatches=r"(?i)^ok$"),
+                        ],
+                        timeout=15.0,
+                    )
+
+            installed_pkg = None
+            if package_candidates:
+                wait_timeout = 240 if is_retroarch else 120
+                installed_pkg = _wait_for_package_install(
+                    adb,
+                    serial,
+                    package_candidates,
+                    timeout_seconds=wait_timeout,
+                )
+
+            if installed_pkg is not None:
+                report.append(f"{app_name}: frontend installed/updated ({installed_pkg})")
+            else:
+                action_status = (
+                    "install/update triggered" if acted else "opened (no action button found)"
+                )
+                report.append(f"{app_name}: frontend {action_status}")
+            _apply_app_name_filter("")
+            _adb_shell(adb, serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+            time.sleep(0.8)
+            _adb_shell(adb, serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+            time.sleep(0.8)
+        except Exception as exc:
+            report.append(f"{app_name}: frontend automation error ({exc})")
+            _adb_shell(adb, serial, "input keyevent KEYCODE_BACK", check=False, timeout=10)
+            time.sleep(0.6)
+
+    return report
 
 
 def _grant_apk_install_permissions(adb: str, serial: str) -> list[str]:
@@ -2046,6 +3133,32 @@ def _install_required_obtainium_apps(adb: str, serial: str) -> list[str]:
     raise RuntimeError("_install_required_obtainium_apps now requires pack_path")
 
 
+def _install_pre_obtainium_required_apps(adb: str, serial: str) -> list[str]:
+    installed = _list_installed_packages(adb, serial)
+    report: list[str] = []
+
+    with tempfile.TemporaryDirectory(prefix="rhc-pre-obtainium-apk-") as tmp_dir:
+        tmp_root = Path(tmp_dir)
+        for app_spec in PRE_OBTAINIUM_REQUIRED_APPS:
+            app_name = str(app_spec["name"])
+            package_candidates = [str(pkg) for pkg in app_spec.get("package_candidates", [])]
+            already_installed = next((pkg for pkg in package_candidates if pkg in installed), None)
+
+            apk_url = _resolve_required_app_apk_url(app_spec)
+            apk_name = urllib.parse.urlparse(apk_url).path.split("/")[-1] or f"{app_name}.apk"
+            destination = tmp_root / apk_name
+            _download_file(apk_url, destination)
+            _install_apk(adb, serial, destination, app_name)
+
+            installed = _list_installed_packages(adb, serial)
+            if already_installed is not None:
+                report.append(f"{app_name}: upgraded ({already_installed})")
+            else:
+                report.append(f"{app_name}: installed")
+
+    return report
+
+
 def _parse_github_repo(url: str) -> tuple[str, str] | None:
     parsed = urllib.parse.urlparse(url)
     if parsed.netloc.lower() not in {"github.com", "www.github.com"}:
@@ -2056,7 +3169,7 @@ def _parse_github_repo(url: str) -> tuple[str, str] | None:
     return parts[0], parts[1]
 
 
-def _resolve_github_apk_url(repo_url: str) -> str:
+def _resolve_github_apk_url(repo_url: str, preferred_build_regex: str | None = None) -> str:
     repo = _parse_github_repo(repo_url)
     if repo is None:
         raise RuntimeError(f"invalid GitHub repo URL: {repo_url}")
@@ -2086,6 +3199,7 @@ def _resolve_github_apk_url(repo_url: str) -> str:
             continue
 
         preferred: str | None = None
+        preferred_by_regex: str | None = None
         fallback: str | None = None
         for asset in assets:
             if not isinstance(asset, dict):
@@ -2099,10 +3213,15 @@ def _resolve_github_apk_url(repo_url: str) -> str:
                 continue
             if fallback is None:
                 fallback = download_url
+            if preferred_build_regex and re.search(preferred_build_regex, asset_name):
+                preferred_by_regex = download_url
+                break
             if any(token in lowered for token in ["arm64", "aarch64", "universal"]):
                 preferred = download_url
                 break
 
+        if preferred_by_regex:
+            return preferred_by_regex
         if preferred:
             return preferred
         if fallback:
@@ -2173,14 +3292,18 @@ def _resolve_libretro_stable_aarch64_apk_url(base_url: str) -> str:
     raise RuntimeError("unable to determine RetroArch APK URL")
 
 
-def _resolve_required_app_apk_url(pack_app: dict[str, Any]) -> str:
+def _resolve_required_app_apk_url(
+    pack_app: dict[str, Any],
+    *,
+    preferred_build_regex: str | None = None,
+) -> str:
     source_url = str(pack_app.get("url", "")).strip()
     override_source = str(pack_app.get("overrideSource", "")).strip().lower()
     if not source_url:
         raise RuntimeError("missing source URL in Obtainium pack entry")
 
     if override_source == "github":
-        return _resolve_github_apk_url(source_url)
+        return _resolve_github_apk_url(source_url, preferred_build_regex=preferred_build_regex)
 
     if override_source == "html" and "buildbot.libretro.com/stable" in source_url:
         return _resolve_libretro_stable_aarch64_apk_url(source_url)
@@ -2219,25 +3342,50 @@ def _install_required_obtainium_apps(
         for app_spec in OBTAINIUM_REQUIRED_APPS:
             app_name = str(app_spec["name"])
             source_name = str(app_spec.get("source_name", app_name))
+            source_name_candidates = [source_name] + [
+                str(entry)
+                for entry in app_spec.get("source_name_candidates", [])
+                if isinstance(entry, str) and entry
+            ]
             package_candidates = [str(pkg) for pkg in app_spec.get("package_candidates", [])]
+            force_reinstall = bool(app_spec.get("force_reinstall", False))
+            install_via_frontend = bool(app_spec.get("install_via_frontend", False))
+            preferred_build_regex = app_spec.get("preferred_build_regex")
+            preferred_build_regex_value = (
+                str(preferred_build_regex) if isinstance(preferred_build_regex, str) else None
+            )
+
+            if install_via_frontend:
+                report.append(f"{app_name}: queued for Obtainium frontend install")
+                continue
 
             already_installed = next((pkg for pkg in package_candidates if pkg in installed), None)
-            if already_installed is not None:
+            if already_installed is not None and not force_reinstall:
                 report.append(f"{app_name}: already installed ({already_installed})")
                 continue
 
-            pack_app = app_by_name.get(source_name)
+            pack_app = None
+            for candidate_name in source_name_candidates:
+                pack_app = app_by_name.get(candidate_name)
+                if pack_app is not None:
+                    break
             if pack_app is None:
                 raise RuntimeError(f"required Obtainium entry not found in pack: {source_name}")
 
-            apk_url = _resolve_required_app_apk_url(pack_app)
+            apk_url = _resolve_required_app_apk_url(
+                pack_app,
+                preferred_build_regex=preferred_build_regex_value,
+            )
             apk_name = urllib.parse.urlparse(apk_url).path.split("/")[-1] or f"{source_name}.apk"
             destination = tmp_root / apk_name
             _download_file(apk_url, destination)
             _install_apk(adb, serial, destination, app_name)
 
             installed = _list_installed_packages(adb, serial)
-            report.append(f"{app_name}: sideloaded from Obtainium source")
+            if already_installed is not None and force_reinstall:
+                report.append(f"{app_name}: upgraded from Obtainium source ({already_installed})")
+            else:
+                report.append(f"{app_name}: sideloaded from Obtainium source")
 
     return report
 
@@ -2390,21 +3538,45 @@ def _configure_system_sounds(adb: str, serial: str) -> None:
 
 
 def _read_stream_volume(adb: str, serial: str, stream_id: int) -> tuple[int, int] | None:
-    result = _adb_shell(
-        adb,
-        serial,
+    commands = (
+        f"cmd media_session volume --stream {stream_id} --get",
         f"media volume --stream {stream_id} --get",
-        check=False,
-        timeout=20,
     )
-    if result.returncode != 0:
-        return None
+    for command in commands:
+        result = _adb_shell(
+            adb,
+            serial,
+            command,
+            check=False,
+            timeout=20,
+        )
+        if result.returncode != 0:
+            continue
 
-    output = result.stdout.strip()
-    match = re.search(r"volume\s+is\s+(\d+)\s+in\s+range\s+\[0\.\.(\d+)\]", output)
-    if match is None:
-        return None
-    return int(match.group(1)), int(match.group(2))
+        output = result.stdout.strip()
+        match = re.search(r"volume\s+is\s+(\d+)\s+in\s+range\s+\[0\.\.(\d+)\]", output)
+        if match is None:
+            continue
+        return int(match.group(1)), int(match.group(2))
+    return None
+
+
+def _set_stream_volume(adb: str, serial: str, stream_id: int, target_volume: int) -> bool:
+    commands = (
+        f"cmd media_session volume --stream {stream_id} --set {target_volume}",
+        f"media volume --stream {stream_id} --set {target_volume}",
+    )
+    for command in commands:
+        result = _adb_shell(
+            adb,
+            serial,
+            command,
+            check=False,
+            timeout=20,
+        )
+        if result.returncode == 0:
+            return True
+    return False
 
 
 def _configure_system_sound_volumes(adb: str, serial: str) -> None:
@@ -2412,20 +3584,17 @@ def _configure_system_sound_volumes(adb: str, serial: str) -> None:
         stream_id = int(profile["stream_id"])
         stream_name = str(profile["stream_name"])
         fallback_setting = str(profile["fallback_setting"])
+        fallback_value = int(profile.get("fallback_value", 2))
+        minimum_volume = int(profile.get("minimum_volume", 1))
         ratio = float(profile["ratio"])
 
         current = _read_stream_volume(adb, serial, stream_id)
         if current is not None:
             _, max_volume = current
-            target_volume = max(1, int(round(max_volume * ratio)))
+            target_volume = max(minimum_volume, int(round(max_volume * ratio)))
+            target_volume = min(target_volume, max_volume)
 
-            _adb_shell(
-                adb,
-                serial,
-                f"media volume --stream {stream_id} --set {target_volume}",
-                check=False,
-                timeout=20,
-            )
+            _set_stream_volume(adb, serial, stream_id, target_volume)
 
             updated = _read_stream_volume(adb, serial, stream_id)
             if updated is not None:
@@ -2436,7 +3605,7 @@ def _configure_system_sound_volumes(adb: str, serial: str) -> None:
         _adb_shell(
             adb,
             serial,
-            f"settings put system {fallback_setting} 3",
+            f"settings put system {fallback_setting} {fallback_value}",
             check=False,
             timeout=20,
         )
@@ -2447,7 +3616,7 @@ def _configure_system_sound_volumes(adb: str, serial: str) -> None:
             check=False,
             timeout=15,
         )
-        if fallback_verify.stdout.strip() != "3":
+        if fallback_verify.stdout.strip() != str(fallback_value):
             raise RuntimeError(f"failed to configure {stream_name} volume")
 
 
@@ -2536,6 +3705,7 @@ def cmd_customize_device(
 
     try:
         now_iso = datetime.now(tz=UTC).isoformat()
+        aurora_apps_completed_during_obtainium = False
 
         if "format-sd" in pending_targets:
             print("step: formatting SD card as public storage")
@@ -2550,10 +3720,13 @@ def cmd_customize_device(
             print("step: installing and configuring APK targets")
             with tempfile.TemporaryDirectory(prefix="rhc-apks-") as apk_tmp_dir:
                 downloaded_apks = _download_latest_apks(
-                    force=True,
+                    force=force,
                     destination_dir=Path(apk_tmp_dir),
                 )
                 _install_apk(adb, selected, downloaded_apks["Obtainium"], label="Obtainium")
+            pre_obtainium_report = _install_pre_obtainium_required_apps(adb, selected)
+            for line in pre_obtainium_report:
+                print(f"info: pre-obtainium installs: {line}")
             install_permission_report = _grant_apk_install_permissions(adb, selected)
             for line in install_permission_report:
                 print(f"info: perms: {line}")
@@ -2565,27 +3738,70 @@ def cmd_customize_device(
             print("done: Aurora backup restored")
             target_state["aurora-restore"] = {"last_applied_at": now_iso}
 
-        if "aurora-install-apps" in pending_targets:
+        if "obtainium-import" in pending_targets:
+            print("step: downloading and importing Obtainium emulation pack")
+            managed_settings_report = _apply_managed_obtainium_settings(adb, selected, profile)
+            print(f"info: obtainium settings: {managed_settings_report}")
+            pack_path = _download_obtainium_emulation_pack(
+                force=force,
+                destination_dir=DEFAULT_DOWNLOADS_DIR,
+            )
+            _merge_obtainium_app_overrides(pack_path, OBTAINIUM_APP_OVERRIDES)
+            remote_path = _push_to_device_downloads(adb, selected, pack_path)
+            print(f"info: copied Obtainium pack to device: {remote_path}")
+            try:
+                _automate_obtainium_import(
+                    adb,
+                    selected,
+                    pack_path,
+                    cleanup_rpc=cleanup_rpc,
+                )
+            except RuntimeError as exc:
+                print(
+                    f"warning: Obtainium UI import failed, continuing with direct sideloads: {exc}"
+                )
+
+            bootstrap_report = _automate_obtainium_frontend_installs(
+                adb,
+                selected,
+                app_specs=OBTAINIUM_FRONTEND_BOOTSTRAP_APPS,
+            )
+            for line in bootstrap_report:
+                print(f"info: obtainium bootstrap: {line}")
+
+            if "aurora-install-apps" in pending_targets:
+                print("step: installing required apps from Aurora")
+                aurora_install_report = _install_apps_from_aurora(adb, selected, profile)
+                for line in aurora_install_report:
+                    print(f"info: aurora installs: {line}")
+                target_state["aurora-install-apps"] = {"last_applied_at": now_iso}
+                aurora_apps_completed_during_obtainium = True
+
+            frontend_report = _automate_obtainium_frontend_installs(
+                adb,
+                selected,
+                app_specs=OBTAINIUM_FRONTEND_REQUIRED_APPS,
+            )
+            for line in frontend_report:
+                print(f"info: obtainium frontend: {line}")
+
+            fg_service_report = _configure_obtainium_foreground_service(
+                adb,
+                selected,
+                enabled=False,
+            )
+            print(f"info: obtainium settings: {fg_service_report}")
+            _disable_auto_rotate(adb, selected)
+            print("info: auto-rotate re-disabled after Obtainium automation")
+            print("done: Obtainium import and required installs complete")
+            target_state["obtainium-import"] = {"last_applied_at": now_iso}
+
+        if "aurora-install-apps" in pending_targets and not aurora_apps_completed_during_obtainium:
             print("step: installing required apps from Aurora")
             aurora_install_report = _install_apps_from_aurora(adb, selected, profile)
             for line in aurora_install_report:
                 print(f"info: aurora installs: {line}")
             target_state["aurora-install-apps"] = {"last_applied_at": now_iso}
-
-        if "obtainium-import" in pending_targets:
-            print("step: downloading and importing Obtainium emulation pack")
-            pack_path = _download_obtainium_emulation_pack(
-                force=True,
-                destination_dir=DEFAULT_DOWNLOADS_DIR,
-            )
-            remote_path = _push_to_device_downloads(adb, selected, pack_path)
-            print(f"info: copied Obtainium pack to device: {remote_path}")
-            _automate_obtainium_import(adb, selected, pack_path, cleanup_rpc=cleanup_rpc)
-            obtainium_install_report = _install_required_obtainium_apps(adb, selected, pack_path)
-            for line in obtainium_install_report:
-                print(f"info: obtainium installs: {line}")
-            print("done: Obtainium import and required installs complete")
-            target_state["obtainium-import"] = {"last_applied_at": now_iso}
 
         if "rom-cleanup" in pending_targets:
             print("step: removing preloaded ROM files")
@@ -2639,6 +3855,10 @@ def cmd_customize_device(
             for line in app_report:
                 print(f"info: app cleanup: {line}")
             target_state["remove-apps"] = {"last_applied_at": now_iso}
+
+        _disable_auto_rotate(adb, selected)
+        _configure_system_sounds(adb, selected)
+        print("info: post-run enforcement applied (auto-rotate off, system sounds/volumes set)")
 
     except subprocess.TimeoutExpired as exc:
         print(f"error: operation timed out: {exc}", file=sys.stderr)

@@ -115,8 +115,32 @@ customize-auto serial="" force="false" profile="retroid-pocket-classic-6-button-
   @printf "\033[1;36m==>\033[0m rhc customize-device (auto)\n"
   nix develop -c rhc --output {{output}} {{if no_color == "true" {"--no-color"} else {""}}} {{if log_file != "" {"--log-file " + log_file} else {""}}} customize-device --profile {{profile}} {{if serial == "" {""} else {if serial == "--force" {""} else {"--serial " + serial}}}} {{if force == "true" {"--force"} else {if serial == "--force" {"--force"} else {""}}}} --yes-format-sd {{if format_sd == "true" {""} else {"--skip-format-sd"}}}
 
-customize-target target="apks" serial="" force="false" profile="retroid-pocket-classic-6-button-gammaos-next" yes_format_sd="false" cleanup_rpc="false" output="text" log_file="" no_color="false":
-  just customize profile="{{profile}}" serial="{{serial}}" force="{{force}}" yes_format_sd="{{yes_format_sd}}" cleanup_rpc="{{cleanup_rpc}}" output="{{output}}" log_file="{{log_file}}" no_color="{{no_color}}" targets="{{target}}"
+customize-target *args:
+  target="apks"; \
+  profile="retroid-pocket-classic-6-button-gammaos-next"; \
+  serial=""; \
+  force="false"; \
+  yes_format_sd="false"; \
+  cleanup_rpc="false"; \
+  output="text"; \
+  log_file=""; \
+  no_color="false"; \
+  for token in {{args}}; do \
+    case "$token" in \
+      target=*) target="${token#target=}" ;; \
+      target_name=*) target="${token#target_name=}" ;; \
+      profile=*) profile="${token#profile=}" ;; \
+      serial=*) serial="${token#serial=}" ;; \
+      force=*) force="${token#force=}" ;; \
+      yes_format_sd=*) yes_format_sd="${token#yes_format_sd=}" ;; \
+      cleanup_rpc=*) cleanup_rpc="${token#cleanup_rpc=}" ;; \
+      output=*) output="${token#output=}" ;; \
+      log_file=*) log_file="${token#log_file=}" ;; \
+      no_color=*) no_color="${token#no_color=}" ;; \
+      *) ;; \
+    esac; \
+  done; \
+  just customize profile="$profile" serial="$serial" force="$force" yes_format_sd="$yes_format_sd" cleanup_rpc="$cleanup_rpc" output="$output" log_file="$log_file" no_color="$no_color" targets="$target"
 
 format-sd serial="" force="false" profile="retroid-pocket-classic-6-button-gammaos-next" yes_format_sd="false" output="text" log_file="" no_color="false":
   just customize-target target="format-sd" serial="{{serial}}" force="{{force}}" profile="{{profile}}" yes_format_sd="{{yes_format_sd}}" output="{{output}}" log_file="{{log_file}}" no_color="{{no_color}}"

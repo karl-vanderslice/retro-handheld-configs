@@ -71,13 +71,19 @@ Global CLI output options for all commands:
 	- use `--skip-format-sd` to leave SD card untouched
 	- downloads latest Obtainium APK at runtime (temporary directory), installs it, and enables install-other-apps app-op for Obtainium and Aurora Store
 	- restores encrypted Aurora backup after APK setup (kills Aurora process before restore)
+	- applies managed Obtainium settings before import when present (`managed/<profile>/obtainium/settings-only.json.age` preferred, `settings-only.json` supported): `github-creds`, `gitlab-creds`, and `useFGService`
+	  - token resolution precedence: `RHC_OBTAINIUM_GITHUB_TOKEN`/`RHC_OBTAINIUM_GITLAB_TOKEN` env vars, then Bitwarden items `RHC_BW_OBTAINIUM_GITHUB_ITEM`/`RHC_BW_OBTAINIUM_GITLAB_ITEM` (requires unlocked `BW_SESSION`), then file values
+	- downloads latest single-device Obtainium Emulation Pack JSON, copies it to `/sdcard/Download/`, and automates Obtainium import via `uiautomator2`
+	  - bootstraps `Aurora Store` from Obtainium first
+	  - then installs required Aurora apps
+	  - then installs remaining required Obtainium apps (`RetroArch AArch64`, `Argosy`, and `GameNative`)
 	- installs from Aurora Store:
 		- Firefox
+		- CX File Explorer
 		- Daijishō
 		- YabaSanshiro 2 Pro (6-button Retroid profile only)
-	- downloads latest single-device Obtainium Emulation Pack JSON, copies it to `/sdcard/Download/`, and automates Obtainium import via `uiautomator2`
-	- ensures required apps from the imported Obtainium JSON are installed: `RetroArch AArch64`, `Argosy`, and `GameNative`
-	  - uses JSON source definitions to sideload latest APKs (GitHub sources include prerelease/nightly assets when newest)
+	- installs required Obtainium apps through Obtainium automation (no direct sideload in customization flow)
+	- disables Obtanium foreground service (`flutter.useFGService=false`) to hide persistent foreground notifications
 	- supports `--cleanup-rpc` to stop `uiautomator2` RPC service after import automation
 	- removes preloaded ROM files under `/storage/emulated/0/ROMs` while preserving `systeminfo.txt`
 	- pushes `managed/<profile>/media/audio` to `/storage/emulated/0/media/audio` preserving structure
