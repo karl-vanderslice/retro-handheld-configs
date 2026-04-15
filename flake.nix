@@ -26,9 +26,9 @@
           git
           gnugrep
           just
-          mkdocs
           pre-commit
           ruff
+          zensical
           ;
         python = pkgs.python312;
         pythonPackages = pkgs.python312Packages;
@@ -220,9 +220,8 @@
             bitwarden-cli
             just
             git
-            mkdocs
+            zensical
             pythonPackages.pytest
-            pythonPackages.mkdocs-material
             pre-commit
             ruff
             python
