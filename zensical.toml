@@ -12,3 +12,8 @@ nav = [
 
 [project.theme]
 variant = "modern"
+logo = "images/retro-handheld-configs-icon.svg"
+favicon = "images/retro-handheld-configs-icon.svg"
+
+[project.theme.palette]
+scheme = "slate"
