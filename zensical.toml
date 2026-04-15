@@ -1,0 +1,14 @@
+[project]
+site_name = "retro-handheld-configs"
+site_description = "Retro handheld config and stock snapshot toolkit"
+repo_name = "karl-vanderslice/retro-handheld-configs"
+docs_dir = "docs"
+site_dir = "site"
+
+nav = [
+  { Home = "index.md" },
+  { Workflows = "workflows.md" },
+]
+
+[project.theme]
+variant = "modern"

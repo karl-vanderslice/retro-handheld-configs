@@ -164,10 +164,10 @@ customize-device-auto *args:
   just customize-auto {{args}}
 
 docs-serve:
-  nix develop -c mkdocs serve
+  nix develop -c zensical serve
 
 docs-build:
-  nix develop -c mkdocs build
+  nix develop -c zensical build
 
 scrub-firebase:
   nix develop -c find backups -iname '*firebase*' -print -exec rm -rf {} +
