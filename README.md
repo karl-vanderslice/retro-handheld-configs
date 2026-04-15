@@ -13,14 +13,6 @@ This project manages:
 - Snapshot backups for stock and custom OS installs
 - ADB-based Android device workflows and SD-card workflows
 
-## Goals
-
-- Reproducible development environment via Nix
-- Idempotent operations with local state/cache markers
-- Strong CLI ergonomics following [clig.dev](https://clig.dev/)
-- Conventional Commit enforcement via pre-commit hooks
-- Project docs under `docs/` via MkDocs
-
 ## Quick start
 
 Use `just` as the single project entrypoint.
@@ -56,7 +48,7 @@ Global CLI output options for all commands:
 - `--log-file <path>` to append structured JSON events
 - `--no-color` to disable ANSI color in text mode
 
-## Current CLI commands
+## CLI commands
 
 - `rhc hello` — verifies ADB availability, checks connected devices, and prints a greeting for the selected device.
 - `rhc pull-backup` — reads a device profile from `configs/devices/` and pulls configured paths into `backups/<Tier>/...`.
@@ -131,14 +123,6 @@ Target-specific wrappers:
 
 Legacy aliases (`customize-device*`) are still available for backward compatibility.
 
-## Workflow entrypoint
-
-- Use the `Justfile` for all day-to-day workflows.
-- Prefer `just <target>` over invoking `nix develop`, `rhc`, `pytest`, or `ruff` directly.
-- Tooling is hermetic and Nix-managed: required CLIs must be declared in `flake.nix`.
-- Do not install workflow dependencies at runtime from recipes/scripts.
-- Lint/format/pre-commit checks exclude `backups/` so captured snapshots are preserved as-is.
-
 ## Device profiles
 
 Profiles live in `configs/devices/*.toml`.
@@ -196,15 +180,6 @@ The CLI stores operation metadata in `.rhc-state/`.
 - Use `rhc state-doctor` to validate file integrity before or after migration.
 - Use `rhc migrate-state` to upgrade older state files to the latest schema.
 - Future pull/push commands should use these markers to skip already-processed steps unless `--force` is supplied.
-
-## Conventional commits
-
-Conventional Commit format is enforced using Nix-provisioned pre-commit hooks.
-
-Example:
-
-- `feat(cli): add initial adb hello command`
-- `chore(nix): add dev shell and git hooks`
 
 ## Layout
 

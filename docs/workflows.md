@@ -1,15 +1,12 @@
 # Workflows
 
 ## Fresh device baseline (planned)
-
 1. Connect device over USB.
 2. Validate ADB communication.
 3. Pull baseline config and metadata to `backups/Stock/`.
 4. Record state marker in `.rhc-state/`.
 
 ## Managed customization apply
-
-Tooling policy: workflows are hermetic. Required CLIs must come from `flake.nix` via `nix develop -c ...`; do not install dependencies at runtime.
 
 Prep once:
 
