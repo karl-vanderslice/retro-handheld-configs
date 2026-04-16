@@ -1,4 +1,5 @@
 set shell := ["bash", "-cu"]
+set quiet
 
 default:
   @just --list
