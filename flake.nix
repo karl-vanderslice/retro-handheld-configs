@@ -212,6 +212,7 @@
               entry = "${pkgs.markdownlint-cli2}/bin/markdownlint-cli2";
               language = "system";
               files = "\\.md$";
+              excludes = ["^backups/"];
             };
             yamllint = {
               enable = true;
@@ -225,6 +226,7 @@
             shellcheck = {
               enable = true;
               types_or = ["bash" "shell"];
+              excludes = ["\\.csh$" "^\\.envrc$"];
             };
 
             conventional-commits = {

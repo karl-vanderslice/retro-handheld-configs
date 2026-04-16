@@ -22,7 +22,7 @@ This repository is intended for agent-assisted management of retro handheld devi
 
 ## Repository conventions
 
-- CLI UX should follow https://clig.dev/.
+- CLI UX should follow [clig.dev](https://clig.dev/).
 - Commit messages must follow Conventional Commits.
 - Documentation lives under `docs/` and is built with MkDocs.
 - Nix is the source of truth for developer tooling.

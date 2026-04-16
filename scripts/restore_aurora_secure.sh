@@ -115,7 +115,7 @@ if [[ -z "${IDENTITY_FILE}" ]]; then
 fi
 
 while IFS= read -r -d '' encrypted_file; do
-  rel_path="${encrypted_file#${ENCRYPTED_ROOT}/}"
+  rel_path="${encrypted_file#"${ENCRYPTED_ROOT}"/}"
   rel_path="${rel_path%.age}"
   out_file="${TMP_DIR}/plain/${rel_path}"
   mkdir -p "$(dirname "${out_file}")"

@@ -1,6 +1,7 @@
 # Workflows
 
 ## Fresh device baseline (planned)
+
 1. Connect device over USB.
 2. Validate ADB communication.
 3. Pull baseline config and metadata to `backups/Stock/`.
@@ -16,27 +17,27 @@ Prep once:
 Use `just customize-device` (or `rhc customize-device`) to apply these ADB steps:
 
 1. Confirm SD reformat and partition removable card as public storage.
-2. Download/install latest Obtainium and allow install-other-apps permissions.
-	- Pre-Obtainium sideloads: `Pixel Guide Android` is installed from its GitHub releases source.
-3. Apply managed Obtainium settings from `managed/<profile>/obtainium/settings-only.json.age` (or `settings-only.json` when unencrypted): `github-creds`, `gitlab-creds`, and `useFGService`.
-	- Token precedence: `RHC_OBTAINIUM_GITHUB_TOKEN` / `RHC_OBTAINIUM_GITLAB_TOKEN`, then Bitwarden items `RHC_BW_OBTAINIUM_GITHUB_ITEM` / `RHC_BW_OBTAINIUM_GITLAB_ITEM` (requires unlocked `BW_SESSION`), then file values.
-4. Download latest single-device Obtainium Emulation Pack JSON, copy it to `/sdcard/Download`, and automate Obtainium import.
-	- Bootstrap `Aurora Store` from Obtainium first.
-5. Install required apps from Aurora Store (`Firefox`, `CX File Explorer`, `Daijishō`, and profile-specific apps such as `YabaSanshiro 2 Pro`).
-6. Install remaining required Obtainium apps (`RetroArch AArch64`, `Argosy`, and `GameNative`) through Obtainium automation.
-	- Obtanium foreground service is disabled (`flutter.useFGService=false`) to hide the persistent foreground notification.
-7. Remove preloaded ROM files from `/storage/emulated/0/ROMs` while preserving `systeminfo.txt`.
-8. Push `managed/<profile>/media/audio` to `/storage/emulated/0/media/audio`.
-9. Configure sounds:
-	- `go_straight` → alarm
-	- `lightning_shield` → charging
-	- `sonic_ring` → notification
-	- `star_light_zone` → ringtone
-	- set system/ring/notification/alarm to a handheld-default level (about 30% with minimum level 2 fallback)
-10. Set timezone to `America/New_York`.
-11. Disable the lock screen.
-12. Disable/uninstall Browser, Calendar, Camera, Clock, Files app, Gallery, MIX Explorer, Music, and Sim Toolkit.
-13. Record completion timestamp in `.rhc-state/`.
+1. Download/install latest Obtainium and allow install-other-apps permissions.
+    - Pre-Obtainium sideloads: `Pixel Guide Android` is installed from its GitHub releases source.
+1. Apply managed Obtainium settings from `managed/<profile>/obtainium/settings-only.json.age` (or `settings-only.json` when unencrypted): `github-creds`, `gitlab-creds`, and `useFGService`.
+    - Token precedence: `RHC_OBTAINIUM_GITHUB_TOKEN` / `RHC_OBTAINIUM_GITLAB_TOKEN`, then Bitwarden items `RHC_BW_OBTAINIUM_GITHUB_ITEM` / `RHC_BW_OBTAINIUM_GITLAB_ITEM` (requires unlocked `BW_SESSION`), then file values.
+1. Download latest single-device Obtainium Emulation Pack JSON, copy it to `/sdcard/Download`, and automate Obtainium import.
+    - Bootstrap `Aurora Store` from Obtainium first.
+1. Install required apps from Aurora Store (`Firefox`, `CX File Explorer`, `Daijishō`, and profile-specific apps such as `YabaSanshiro 2 Pro`).
+1. Install remaining required Obtainium apps (`RetroArch AArch64`, `Argosy`, and `GameNative`) through Obtainium automation.
+    - Obtanium foreground service is disabled (`flutter.useFGService=false`) to hide the persistent foreground notification.
+1. Remove preloaded ROM files from `/storage/emulated/0/ROMs` while preserving `systeminfo.txt`.
+1. Push `managed/<profile>/media/audio` to `/storage/emulated/0/media/audio`.
+1. Configure sounds:
+    - `go_straight` → alarm
+    - `lightning_shield` → charging
+    - `sonic_ring` → notification
+    - `star_light_zone` → ringtone
+    - set system/ring/notification/alarm to a handheld-default level (about 30% with minimum level 2 fallback)
+1. Set timezone to `America/New_York`.
+1. Disable the lock screen.
+1. Disable/uninstall Browser, Calendar, Camera, Clock, Files app, Gallery, MIX Explorer, Music, and Sim Toolkit.
+1. Record completion timestamp in `.rhc-state/`.
 
 Targeted runs are supported with `--target` (repeatable), for example:
 
@@ -72,19 +73,19 @@ Bootstrap local untracked identity file from Bitwarden:
 - Optional overrides: `just bootstrap-age-key bw_item="<item-id-or-name>" out_file=".rhc-secrets/age-identity.txt"`
 
 1. Run `just backup-aurora-secure` to capture current Aurora app state.
-	- Uses local identity file first (`RHC_AGE_IDENTITY_FILE` / `--identity-file`) when present.
-	- Otherwise reads `age` secret key from Bitwarden (`bw get notes <item>`), derives the public recipient, and encrypts files.
-	- Set the Bitwarden item via `RHC_BW_AGE_ITEM` or pass `--bw-item`.
-	- Optional `just` passthrough: `just backup-aurora-secure bw_item="<item-id-or-name>"`.
-	- Optional local identity passthrough: `just backup-aurora-secure identity_file=".rhc-secrets/age-identity.txt"`.
-	- Writes encrypted files to `backups/Android/aurora-store/current/encrypted/`.
-	- Uses a single backup version (`current`) and replaces it on each run.
-	- Does not keep tarballs/archives in the repository.
-2. Run `just restore-aurora-secure` to restore from encrypted snapshot.
-	- Uses local identity file first (`RHC_AGE_IDENTITY_FILE` / `--identity-file`) when present.
-	- Otherwise reads the same Bitwarden `age` secret key for decryption.
-	- Uses `RHC_BW_AGE_ITEM`, `--bw-item`, or backup metadata (`bitwarden_item`) to locate the key source.
-	- Optional `just` passthrough: `just restore-aurora-secure bw_item="<item-id-or-name>"`.
-	- Optional local identity passthrough: `just restore-aurora-secure identity_file=".rhc-secrets/age-identity.txt"`.
-	- Restores from `backups/Android/aurora-store/current/`.
-	- Force-stops Aurora Store before restore operations.
+    - Uses local identity file first (`RHC_AGE_IDENTITY_FILE` / `--identity-file`) when present.
+    - Otherwise reads `age` secret key from Bitwarden (`bw get notes <item>`), derives the public recipient, and encrypts files.
+    - Set the Bitwarden item via `RHC_BW_AGE_ITEM` or pass `--bw-item`.
+    - Optional `just` passthrough: `just backup-aurora-secure bw_item="<item-id-or-name>"`.
+    - Optional local identity passthrough: `just backup-aurora-secure identity_file=".rhc-secrets/age-identity.txt"`.
+    - Writes encrypted files to `backups/Android/aurora-store/current/encrypted/`.
+    - Uses a single backup version (`current`) and replaces it on each run.
+    - Does not keep tarballs/archives in the repository.
+1. Run `just restore-aurora-secure` to restore from encrypted snapshot.
+    - Uses local identity file first (`RHC_AGE_IDENTITY_FILE` / `--identity-file`) when present.
+    - Otherwise reads the same Bitwarden `age` secret key for decryption.
+    - Uses `RHC_BW_AGE_ITEM`, `--bw-item`, or backup metadata (`bitwarden_item`) to locate the key source.
+    - Optional `just` passthrough: `just restore-aurora-secure bw_item="<item-id-or-name>"`.
+    - Optional local identity passthrough: `just restore-aurora-secure identity_file=".rhc-secrets/age-identity.txt"`.
+    - Restores from `backups/Android/aurora-store/current/`.
+    - Force-stops Aurora Store before restore operations.

@@ -21,7 +21,7 @@ check:
   nix develop -c just test
   nix flake check
 
-precommit:
+pre-commit:
   nix develop -c pre-commit run --all-files
 
 clean:

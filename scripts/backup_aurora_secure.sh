@@ -152,7 +152,7 @@ adb -s "${SERIAL}" pull "/storage/emulated/0/Android/data/${PACKAGE_NAME}/." "${
 FILE_COUNT=0
 
 while IFS= read -r -d '' file_path; do
-  rel_path="${file_path#${TMP_DIR}/plain/}"
+  rel_path="${file_path#"${TMP_DIR}/plain/"}"
   out_path="${ENCRYPTED_ROOT}/${rel_path}.age"
   mkdir -p "$(dirname "${out_path}")"
   age -r "${RECIPIENT}" -o "${out_path}" "${file_path}"
