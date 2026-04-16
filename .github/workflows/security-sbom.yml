@@ -1,6 +1,7 @@
+---
 name: security-sbom
 
-on:
+"on":
   pull_request:
   push:
     branches: [main, master]
@@ -20,7 +21,7 @@ jobs:
       - name: Lint and test
         run: nix develop -c just check
       - name: OSV vulnerability scan
-        uses: google/osv-scanner-action@v1
+        uses: google/osv-scanner-action@v2.3.5
         with:
           scan-args: |-
             -r
