@@ -24,6 +24,4 @@ __pycache__/
 # MkDocs build output
 site/
 
-# Ensure lockfile is tracked (override broad/global ignores)
-!flake.lock
 !.envrc
