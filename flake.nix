@@ -5,20 +5,40 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     git-hooks.url = "github:cachix/git-hooks.nix";
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-      git-hooks,
-    }:
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    git-hooks,
+    treefmt-nix,
+  }:
     flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-        inherit (pkgs)
+      system: let
+        pkgs = import nixpkgs {inherit system;};
+
+        treefmtEval = treefmt-nix.lib.evalModule pkgs {
+          projectRootFile = "flake.nix";
+          programs = {
+            alejandra.enable = true;
+            biome = {
+              enable = true;
+              includes = ["*.json"];
+            };
+            ruff-format = {
+              enable = true;
+              excludes = ["backups/*"];
+            };
+          };
+        };
+
+        inherit
+          (pkgs)
           age
           android-tools
           bitwarden-cli
@@ -46,7 +66,7 @@
             hash = "sha256-9/7hOx4V0GEcRikQpqpyqJGYI5iN0EEhUrw3GciaTlU=";
           };
 
-          propagatedBuildInputs = [ pythonPackages.decorator ];
+          propagatedBuildInputs = [pythonPackages.decorator];
 
           doCheck = false;
         };
@@ -169,22 +189,42 @@
         preCommitCheck = git-hooks.lib.${system}.run {
           src = ./.;
           hooks = {
-            nixfmt.enable = true;
+            alejandra.enable = true;
             ruff = {
               enable = true;
-              excludes = [ "^backups/" ];
+              excludes = ["^backups/"];
             };
             ruff-format = {
               enable = true;
-              excludes = [ "^backups/" ];
+              excludes = ["^backups/"];
             };
             end-of-file-fixer = {
               enable = true;
-              excludes = [ "^backups/" ];
+              excludes = ["^backups/"];
             };
             trim-trailing-whitespace = {
               enable = true;
-              excludes = [ "^backups/" ];
+              excludes = ["^backups/"];
+            };
+            markdownlint-cli2 = {
+              enable = true;
+              name = "markdownlint-cli2";
+              entry = "${pkgs.markdownlint-cli2}/bin/markdownlint-cli2";
+              language = "system";
+              files = "\\.md$";
+            };
+            yamllint = {
+              enable = true;
+              settings.configuration = ''
+                ---
+                extends: relaxed
+                rules:
+                  line-length: disable
+              '';
+            };
+            shellcheck = {
+              enable = true;
+              types_or = ["bash" "shell"];
             };
 
             conventional-commits = {
@@ -192,7 +232,7 @@
               name = "conventional-commits";
               entry = "${conventionalCommitCheck}/bin/conventional-commit-check";
               pass_filenames = true;
-              stages = [ "commit-msg" ];
+              stages = ["commit-msg"];
               always_run = true;
             };
 
@@ -205,10 +245,12 @@
             };
           };
         };
-      in
-      {
+      in {
+        formatter = treefmtEval.config.build.wrapper;
+
         checks = {
           pre-commit-check = preCommitCheck;
+          formatting = treefmtEval.config.build.check self;
         };
 
         devShells.default = pkgs.mkShell {
@@ -221,6 +263,10 @@
             just
             git
             zensical
+            pkgs.biome
+            pkgs.markdownlint-cli2
+            pkgs.shellcheck
+            pkgs.yamllint
             pythonPackages.pytest
             pre-commit
             ruff
