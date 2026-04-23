@@ -35,6 +35,18 @@ This repository is intended for agent-assisted management of retro handheld devi
   `retroid-pocket-classic-6-button-gammaos-next`; do not assume all future devices share
   identical app-removal, install, or tuning rules.
 
+## Documentation Standards
+
+- Keep `README.md` as the GitHub entrypoint and `docs/index.md` as the docs
+  landing page.
+- Do not add duplicate overview pages such as `docs/README.md`.
+- Shard docs and managed config by device, platform, or workflow domain rather
+  than collecting unrelated steps in one long setup page.
+- Keep reference docs factual and brief; put recovery procedures and setup
+  steps into separate how-to guides.
+- Use the centralized docs hub flow for published docs when this repo is part
+  of the shared documentation site.
+
 ## Safety rules
 
 - Never delete from device storage unless an explicit destructive flag is provided.
