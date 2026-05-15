@@ -29,6 +29,7 @@
             biome = {
               enable = true;
               includes = ["*.json"];
+              excludes = ["backups/**"];
             };
             ruff-format = {
               enable = true;
