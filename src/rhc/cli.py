@@ -1386,37 +1386,51 @@ def _resolve_runtime_age_identity_file(tmp_dir: Path) -> Path:
             return candidate
         raise RuntimeError(f"age identity file not found: {candidate}")
 
-    bw_item = os.environ.get("RHC_BW_AGE_ITEM", "").strip()
-    if not bw_item:
-        raise RuntimeError("encrypted settings require RHC_AGE_IDENTITY_FILE or RHC_BW_AGE_ITEM")
+    rbw_item = os.environ.get("RHC_RBW_AGE_ITEM", "").strip()
+    if not rbw_item:
+        raise RuntimeError("encrypted settings require RHC_AGE_IDENTITY_FILE or RHC_RBW_AGE_ITEM")
 
-    if not shutil.which("bw"):
-        raise RuntimeError("bw (Bitwarden CLI) is required for encrypted settings")
+    if not shutil.which("rbw"):
+        raise RuntimeError("rbw is required for encrypted settings")
 
-    bw_session = os.environ.get("BW_SESSION", "").strip()
-    if not bw_session:
-        raise RuntimeError("BW_SESSION is required for Bitwarden-backed encrypted settings")
-
-    status = subprocess.run(
-        ["bw", "status", "--session", bw_session],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=15,
-    )
-    if '"status":"unlocked"' not in status.stdout:
-        raise RuntimeError("Bitwarden vault is not unlocked for this shell session")
-
-    result = subprocess.run(
-        ["bw", "get", "notes", bw_item, "--session", bw_session],
+    unlock = subprocess.run(
+        ["rbw", "unlock"],
         capture_output=True,
         text=True,
         check=False,
         timeout=20,
     )
+    if unlock.returncode != 0:
+        raise RuntimeError("rbw unlock failed for this shell session")
+
+    sync = subprocess.run(
+        ["rbw", "sync"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=20,
+    )
+    if sync.returncode != 0:
+        raise RuntimeError("rbw sync failed for this shell session")
+
+    result = subprocess.run(
+        ["rbw", "get", "--field", "notes", rbw_item],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=20,
+    )
+    if result.returncode != 0:
+        result = subprocess.run(
+            ["rbw", "get", rbw_item],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=20,
+        )
     identity = result.stdout.strip()
     if result.returncode != 0 or not identity.startswith("AGE-SECRET-KEY-"):
-        raise RuntimeError(f"failed to read age identity from Bitwarden item: {bw_item}")
+        raise RuntimeError(f"failed to read age identity from rbw item: {rbw_item}")
 
     identity_file = tmp_dir / "age-identity.txt"
     identity_file.write_text(identity + "\n", encoding="utf-8")
@@ -1467,9 +1481,9 @@ def _load_managed_obtainium_settings(profile: str) -> dict[str, Any]:
     )
 
 
-def _resolve_obtainium_tokens_from_bitwarden() -> dict[str, str]:
-    github_item_env = os.environ.get("RHC_BW_OBTAINIUM_GITHUB_ITEM", "").strip()
-    gitlab_item_env = os.environ.get("RHC_BW_OBTAINIUM_GITLAB_ITEM", "").strip()
+def _resolve_obtainium_tokens_from_rbw() -> dict[str, str]:
+    github_item_env = os.environ.get("RHC_RBW_OBTAINIUM_GITHUB_ITEM", "").strip()
+    gitlab_item_env = os.environ.get("RHC_RBW_OBTAINIUM_GITLAB_ITEM", "").strip()
 
     requested_items: dict[str, list[str]] = {
         "github-creds": (
@@ -1487,79 +1501,58 @@ def _resolve_obtainium_tokens_from_bitwarden() -> dict[str, str]:
     if not any(requested_items.values()):
         return {}
 
-    bw_session = os.environ.get("BW_SESSION", "").strip()
-    if not bw_session:
-        if any(explicit_item_override.values()):
-            raise RuntimeError("BW_SESSION is required to resolve Obtainium tokens from Bitwarden")
-        return {}
+    if not shutil.which("rbw"):
+        raise RuntimeError("rbw is required to resolve Obtainium tokens")
 
-    if not shutil.which("bw"):
-        raise RuntimeError("bw (Bitwarden CLI) is required to resolve Obtainium tokens")
-
-    status = subprocess.run(
-        ["bw", "status", "--session", bw_session],
+    unlock = subprocess.run(
+        ["rbw", "unlock"],
         capture_output=True,
         text=True,
         check=False,
-        timeout=15,
+        timeout=20,
     )
-    if '"status":"unlocked"' not in status.stdout:
-        raise RuntimeError("Bitwarden vault is not unlocked for this shell session")
+    if unlock.returncode != 0:
+        if any(explicit_item_override.values()):
+            raise RuntimeError("rbw unlock is required to resolve Obtainium tokens")
+        return {}
+
+    sync = subprocess.run(
+        ["rbw", "sync"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=20,
+    )
+    if sync.returncode != 0:
+        if any(explicit_item_override.values()):
+            raise RuntimeError("rbw sync failed while resolving Obtainium tokens")
+        return {}
 
     def _read_token_from_item(item_ref: str) -> str:
         token = ""
 
-        notes_result = subprocess.run(
-            ["bw", "get", "notes", item_ref, "--session", bw_session],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=20,
-        )
-        if notes_result.returncode == 0 and notes_result.stdout.strip():
-            token = notes_result.stdout.strip()
-
-        if not token:
-            password_result = subprocess.run(
-                ["bw", "get", "password", item_ref, "--session", bw_session],
+        for field_name in ("notes", "password", "token", "access_token", "api_key"):
+            result = subprocess.run(
+                ["rbw", "get", "--field", field_name, item_ref],
                 capture_output=True,
                 text=True,
                 check=False,
                 timeout=20,
             )
-            if password_result.returncode == 0 and password_result.stdout.strip():
-                token = password_result.stdout.strip()
+            if result.returncode == 0 and result.stdout.strip():
+                token = result.stdout.strip()
+                break
 
         if not token:
-            item_result = subprocess.run(
-                ["bw", "get", "item", item_ref, "--session", bw_session],
+            result = subprocess.run(
+                ["rbw", "get", item_ref],
                 capture_output=True,
                 text=True,
                 check=False,
                 timeout=20,
             )
-            if item_result.returncode == 0 and item_result.stdout.strip():
-                try:
-                    item_payload = json.loads(item_result.stdout)
-                except json.JSONDecodeError:
-                    item_payload = {}
-
-                login = item_payload.get("login") if isinstance(item_payload, dict) else None
-                if isinstance(login, dict):
-                    password = login.get("password")
-                    if isinstance(password, str) and password.strip():
-                        token = password.strip()
-
-                if not token:
-                    fields = item_payload.get("fields") if isinstance(item_payload, dict) else None
-                    if isinstance(fields, list):
-                        for field in fields:
-                            if not isinstance(field, dict):
-                                continue
-                            value = field.get("value")
-                            if isinstance(value, str) and value.strip():
-                                token = value.strip()
-                                break
+            if result.returncode == 0 and result.stdout.strip():
+                token = result.stdout.strip()
 
         return token
 
@@ -1577,7 +1570,7 @@ def _resolve_obtainium_tokens_from_bitwarden() -> dict[str, str]:
 
         if explicit_item_override.get(settings_key, False):
             raise RuntimeError(
-                f"failed to read Obtainium token from Bitwarden item: {item_candidates[0]}"
+                f"failed to read Obtainium token from rbw item: {item_candidates[0]}"
             )
 
     return resolved_tokens
@@ -1599,7 +1592,7 @@ def _apply_managed_obtainium_settings(adb: str, serial: str, profile: str) -> st
     if direct_gitlab:
         desired_settings["gitlab-creds"] = direct_gitlab
 
-    desired_settings.update(_resolve_obtainium_tokens_from_bitwarden())
+    desired_settings.update(_resolve_obtainium_tokens_from_rbw())
 
     if not desired_settings:
         return "Obtainium settings: no managed token/foreground keys found"

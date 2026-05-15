@@ -41,7 +41,7 @@
           (pkgs)
           age
           android-tools
-          bitwarden-cli
+          rbw
           coreutils
           git
           gnugrep
@@ -261,7 +261,7 @@
           packages = [
             android-tools
             age
-            bitwarden-cli
+            rbw
             just
             git
             zensical

@@ -15,7 +15,7 @@ use profile-specific customization mappings.
 - **Managed customizations** — pushes audio assets, APKs, Obtainium packs,
   system settings, and app configuration via ADB
 - **Encrypted backups** — Aurora Store backup and restore with age encryption
-  backed by Bitwarden
+  backed by rbw
 - **SD card workflows** — format, partition, and bootstrap removable storage
 
 ## Quick start

@@ -179,57 +179,57 @@ adb-root serial="":
 
 backup-aurora-secure *args:
   @printf "\033[1;36m==>\033[0m encrypted Aurora backup\n"
-  bw_item=""; \
+  rbw_item=""; \
   identity_file=""; \
   for token in {{args}}; do \
     case "$token" in \
-      bw_item=*) bw_item="${token#bw_item=}" ;; \
+      rbw_item=*) rbw_item="${token#rbw_item=}" ;; \
       identity_file=*) identity_file="${token#identity_file=}" ;; \
-      --bw-item=*) bw_item="${token#--bw-item=}" ;; \
+      --rbw-item=*) rbw_item="${token#--rbw-item=}" ;; \
       --identity-file=*) identity_file="${token#--identity-file=}" ;; \
       *) ;; \
     esac; \
   done; \
   cmd=(nix develop -c bash scripts/backup_aurora_secure.sh --force); \
-  if [[ -n "$bw_item" ]]; then cmd+=(--bw-item "$bw_item"); fi; \
+  if [[ -n "$rbw_item" ]]; then cmd+=(--rbw-item "$rbw_item"); fi; \
   if [[ -n "$identity_file" ]]; then cmd+=(--identity-file "$identity_file"); fi; \
   "${cmd[@]}"
 
 restore-aurora-secure *args:
   @printf "\033[1;36m==>\033[0m encrypted Aurora restore\n"
-  bw_item=""; \
+  rbw_item=""; \
   identity_file=""; \
   for token in {{args}}; do \
     case "$token" in \
-      bw_item=*) bw_item="${token#bw_item=}" ;; \
+      rbw_item=*) rbw_item="${token#rbw_item=}" ;; \
       identity_file=*) identity_file="${token#identity_file=}" ;; \
-      --bw-item=*) bw_item="${token#--bw-item=}" ;; \
+      --rbw-item=*) rbw_item="${token#--rbw-item=}" ;; \
       --identity-file=*) identity_file="${token#--identity-file=}" ;; \
       *) ;; \
     esac; \
   done; \
   cmd=(nix develop -c bash scripts/restore_aurora_secure.sh); \
-  if [[ -n "$bw_item" ]]; then cmd+=(--bw-item "$bw_item"); fi; \
+  if [[ -n "$rbw_item" ]]; then cmd+=(--rbw-item "$rbw_item"); fi; \
   if [[ -n "$identity_file" ]]; then cmd+=(--identity-file "$identity_file"); fi; \
   "${cmd[@]}"
 
 bootstrap-age-key *args:
-  @printf "\033[1;36m==>\033[0m bootstrap age key from Bitwarden\n"
-  bw_item=""; \
+  @printf "\033[1;36m==>\033[0m bootstrap age key from rbw\n"
+  rbw_item=""; \
   out_file=".rhc-secrets/age-identity.txt"; \
   force="false"; \
   for token in {{args}}; do \
     case "$token" in \
-      bw_item=*) bw_item="${token#bw_item=}" ;; \
+      rbw_item=*) rbw_item="${token#rbw_item=}" ;; \
       out_file=*) out_file="${token#out_file=}" ;; \
       force=*) force="${token#force=}" ;; \
-      --bw-item=*) bw_item="${token#--bw-item=}" ;; \
+      --rbw-item=*) rbw_item="${token#--rbw-item=}" ;; \
       --out-file=*) out_file="${token#--out-file=}" ;; \
       --force) force="true" ;; \
       *) ;; \
     esac; \
   done; \
-  cmd=(nix develop -c bash scripts/bootstrap_age_key_from_bitwarden.sh --out-file "$out_file"); \
-  if [[ -n "$bw_item" ]]; then cmd+=(--bw-item "$bw_item"); fi; \
+  cmd=(nix develop -c bash scripts/bootstrap_age_key_from_rbw.sh --out-file "$out_file"); \
+  if [[ -n "$rbw_item" ]]; then cmd+=(--rbw-item "$rbw_item"); fi; \
   if [[ "$force" == "true" ]]; then cmd+=(--force); fi; \
   "${cmd[@]}"

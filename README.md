@@ -64,7 +64,7 @@ Global CLI output options for all commands:
   - downloads latest Obtainium APK at runtime (temporary directory), installs it, and enables install-other-apps app-op for Obtainium and Aurora Store
   - restores encrypted Aurora backup after APK setup (kills Aurora process before restore)
   - applies managed Obtainium settings before import when present (`managed/<profile>/obtainium/settings-only.json.age` preferred, `settings-only.json` supported): `github-creds`, `gitlab-creds`, and `useFGService`
-    - token resolution precedence: `RHC_OBTAINIUM_GITHUB_TOKEN`/`RHC_OBTAINIUM_GITLAB_TOKEN` env vars, then Bitwarden items `RHC_BW_OBTAINIUM_GITHUB_ITEM`/`RHC_BW_OBTAINIUM_GITLAB_ITEM` (requires unlocked `BW_SESSION`), then file values
+    - token resolution precedence: `RHC_OBTAINIUM_GITHUB_TOKEN`/`RHC_OBTAINIUM_GITLAB_TOKEN` env vars, then rbw items `RHC_RBW_OBTAINIUM_GITHUB_ITEM`/`RHC_RBW_OBTAINIUM_GITLAB_ITEM`, then file values
   - downloads latest single-device Obtainium Emulation Pack JSON, copies it to `/sdcard/Download/`, and automates Obtainium import via `uiautomator2`
     - bootstraps `Aurora Store` from Obtainium first
     - then installs required Aurora apps
@@ -95,19 +95,18 @@ Global CLI output options for all commands:
 
 Encrypted Android app backup workflows:
 
-- `just bootstrap-age-key` — pulls the `age` identity from Bitwarden and writes it to a local untracked file (default: `.rhc-secrets/age-identity.txt`).
-  - Requires Bitwarden to be unlocked in the current shell (`BW_SESSION`).
-  - Uses `RHC_BW_AGE_ITEM` or `bw_item="..."` to select the source item.
+- `just bootstrap-age-key` — pulls the `age` identity from rbw and writes it to a local untracked file (default: `.rhc-secrets/age-identity.txt`).
+  - Uses `RHC_RBW_AGE_ITEM` or `rbw_item="..."` to select the source item.
   - Uses `RHC_AGE_IDENTITY_FILE` or `out_file="..."` for destination path.
 - `just backup-aurora-secure` — captures Aurora Store private + external app data over ADB and writes only `age`-encrypted files into `backups/Android/aurora-store/current/encrypted/`.
-  - Uses a local identity file when available (`RHC_AGE_IDENTITY_FILE` or `--identity-file`), otherwise reads from Bitwarden (`RHC_BW_AGE_ITEM` / `--bw-item`).
-  - You can also pass the item through `just`: `just backup-aurora-secure bw_item="<item-id-or-name>"`.
+  - Uses a local identity file when available (`RHC_AGE_IDENTITY_FILE` or `--identity-file`), otherwise reads from rbw (`RHC_RBW_AGE_ITEM` / `--rbw-item`).
+  - You can also pass the item through `just`: `just backup-aurora-secure rbw_item="<item-id-or-name>"`.
   - You can also pass the identity file through `just`: `just backup-aurora-secure identity_file=".rhc-secrets/age-identity.txt"`.
   - Uses a single in-repo backup version (`current`) and replaces it on each run.
   - No tarballs/archives are retained in-repo by this workflow.
 - `just restore-aurora-secure` — decrypts the `current` Aurora backup and restores it to device storage.
-  - Uses a local identity file when available (`RHC_AGE_IDENTITY_FILE` or `--identity-file`), otherwise reads from Bitwarden (`RHC_BW_AGE_ITEM` / `--bw-item` / metadata hint).
-  - You can also pass the item through `just`: `just restore-aurora-secure bw_item="<item-id-or-name>"`.
+  - Uses a local identity file when available (`RHC_AGE_IDENTITY_FILE` or `--identity-file`), otherwise reads from rbw (`RHC_RBW_AGE_ITEM` / `--rbw-item` / metadata hint).
+  - You can also pass the item through `just`: `just restore-aurora-secure rbw_item="<item-id-or-name>"`.
   - You can also pass the identity file through `just`: `just restore-aurora-secure identity_file=".rhc-secrets/age-identity.txt"`.
   - Force-stops Aurora (`am force-stop com.aurora.store`) before restore.
   - Uses a single backup version (`current`).

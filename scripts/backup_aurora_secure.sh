@@ -4,7 +4,7 @@ set -euo pipefail
 PACKAGE_NAME="com.aurora.store"
 BACKUP_ROOT="backups/Android/aurora-store/current"
 SERIAL=""
-BW_ITEM="${RHC_BW_AGE_ITEM:-}"
+RBW_ITEM="${RHC_RBW_AGE_ITEM:-}"
 IDENTITY_FILE="${RHC_AGE_IDENTITY_FILE:-}"
 FORCE="false"
 
@@ -14,8 +14,8 @@ while [[ $# -gt 0 ]]; do
       SERIAL="$2"
       shift 2
       ;;
-    --bw-item)
-      BW_ITEM="$2"
+    --rbw-item)
+      RBW_ITEM="$2"
       shift 2
       ;;
     --identity-file)
@@ -82,36 +82,35 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ -z "${IDENTITY_FILE}" ]]; then
-  if [[ -z "${BW_ITEM}" ]]; then
-    echo "Bitwarden item is required. Set RHC_BW_AGE_ITEM, pass --bw-item, or provide --identity-file." >&2
+  if [[ -z "${RBW_ITEM}" ]]; then
+    echo "rbw item is required. Set RHC_RBW_AGE_ITEM, pass --rbw-item, or provide --identity-file." >&2
     exit 1
   fi
 
-  if ! command -v bw >/dev/null 2>&1; then
-    echo "bw (Bitwarden CLI) is required in PATH" >&2
+  if ! command -v rbw >/dev/null 2>&1; then
+    echo "rbw is required in PATH" >&2
     exit 1
   fi
 
-  if [[ -z "${BW_SESSION:-}" ]]; then
-    echo "BW_SESSION is not set. Unlock Bitwarden first (for example: export BW_SESSION=\"\$(bw unlock --raw)\")." >&2
+  if ! rbw unlock >/dev/null 2>&1; then
+    echo "rbw unlock failed. Ensure rbw-agent is running and credentials are configured." >&2
     exit 1
   fi
 
-  BW_STATUS="$(bw status --session "${BW_SESSION}" 2>/dev/null || true)"
-  if ! printf '%s' "${BW_STATUS}" | grep -q '"status":"unlocked"'; then
-    echo "Bitwarden vault is not unlocked for this shell session. Run bw unlock and export BW_SESSION." >&2
+  if ! rbw sync >/dev/null 2>&1; then
+    echo "rbw sync failed." >&2
     exit 1
   fi
 
-  IDENTITY_FILE="${TMP_DIR}/bitwarden-age-identity.txt"
-  AGE_IDENTITY="$(bw get notes "${BW_ITEM}" --session "${BW_SESSION}" 2>/dev/null || true)"
+  IDENTITY_FILE="${TMP_DIR}/rbw-age-identity.txt"
+  AGE_IDENTITY="$(rbw get --field notes "${RBW_ITEM}" 2>/dev/null || rbw get "${RBW_ITEM}" 2>/dev/null || true)"
   if [[ -z "${AGE_IDENTITY}" ]]; then
-    echo "Failed to read age identity from Bitwarden item: ${BW_ITEM}" >&2
+    echo "Failed to read age identity from rbw item: ${RBW_ITEM}" >&2
     exit 1
   fi
 
   if ! printf '%s' "${AGE_IDENTITY}" | grep -q '^AGE-SECRET-KEY-'; then
-    echo "Bitwarden item ${BW_ITEM} does not contain an age identity key (AGE-SECRET-KEY-...)." >&2
+    echo "rbw item ${RBW_ITEM} does not contain an age identity key (AGE-SECRET-KEY-...)." >&2
     exit 1
   fi
 
@@ -165,7 +164,7 @@ cat > "${BACKUP_ROOT}/metadata.json" <<EOF
   "serial": "${SERIAL}",
   "backup_dir": "current",
   "encrypted_with": "age-identity",
-  "bitwarden_item": "${BW_ITEM}",
+  "rbw_item": "${RBW_ITEM}",
   "identity_file": "${LOCAL_IDENTITY_FILE}",
   "file_count": ${FILE_COUNT}
 }
