@@ -1,0 +1,14 @@
+# retro-handheld-configs
+
+> Toolkit for retro handheld device backups, ADB-based customization, encrypted Aurora backup and restore, and SD-card workflow automation, currently centered on the Retroid Pocket Classic 6-button profile.
+
+Start with the docs home for the workflow surface, then use the workflows guide for end-to-end operator sequences. This repo is about managed device state and repeatable setup, not general emulator usage advice.
+
+## Core Docs
+
+- [Docs Home](./): Short summary of the docs surface and intended workflows.
+- [Workflows](./workflows/): Fresh baseline, managed customization, encrypted Aurora backup, and restore sequences.
+
+## Optional
+
+- [AGENTS](https://github.com/karl-vanderslice/retro-handheld-configs/blob/master/AGENTS.md): Repo guardrails, operating model, and contributor constraints.
